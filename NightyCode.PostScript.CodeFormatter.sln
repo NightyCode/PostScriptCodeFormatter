@@ -3,7 +3,25 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NightyCode.PostScript", "NightyCode.PostScript\NightyCode.PostScript.csproj", "{C8A39090-61E4-4CA3-B982-DF6393B17F65}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NightyCode.PostScript.CodeFormatter", "NightyCode.PostScript.CodeFormatter\NightyCode.PostScript.CodeFormatter.csproj", "{3854DFEA-B9BB-4EC7-A481-D98797EFDDF0}"
+EndProject
 Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C8A39090-61E4-4CA3-B982-DF6393B17F65}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8A39090-61E4-4CA3-B982-DF6393B17F65}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8A39090-61E4-4CA3-B982-DF6393B17F65}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8A39090-61E4-4CA3-B982-DF6393B17F65}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3854DFEA-B9BB-4EC7-A481-D98797EFDDF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3854DFEA-B9BB-4EC7-A481-D98797EFDDF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3854DFEA-B9BB-4EC7-A481-D98797EFDDF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3854DFEA-B9BB-4EC7-A481-D98797EFDDF0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
