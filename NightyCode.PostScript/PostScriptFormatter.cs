@@ -108,7 +108,7 @@
                 {
                     bool isProcedure = blockNode is ProcedureNode;
 
-                    if (!isProcedure || blockNode.Children.Count > 2
+                    if (!isProcedure || blockNode.Children.Count > 2 || blockNode.Children.Any(n => n is BlockNode)
                         || (currentLineLength + text.Length + 1) >= maxLineLength)
                     {
                         appendLine();
