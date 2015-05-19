@@ -2,34 +2,23 @@
 {
     #region Namespace Imports
 
-    using System.Windows;
+    
 
     #endregion
 
 
     public partial class MainWindow
     {
-        private readonly PostScriptFormatter _formatter;
-
+        #region Constructors and Destructors
 
         public MainWindow()
         {
             InitializeComponent();
 
-            _formatter = new PostScriptFormatter();
+            // TODO: Use prism.
+            DataContext = new MainViewModel();
         }
 
-
-        private void OnFormatButtonClick(object sender, RoutedEventArgs e)
-        {
-            ResultTextBox.Text = string.Empty;
-
-            if (string.IsNullOrWhiteSpace(SourceTextBox.Text))
-            {
-                return;
-            }
-
-            ResultTextBox.Text = _formatter.Format(SourceTextBox.Text);
-        }
+        #endregion
     }
 }

@@ -19,15 +19,7 @@
 
     public class PostScriptFormatter
     {
-        private static readonly List<string> _breakBeforeLiterals = new List<string>
-        {
-            "begin",
-            "end",
-            "save",
-            "restore",
-            "gsave",
-            "grestore"
-        };
+        #region Constants and Fields
 
         private static readonly List<string> _breakAfterLiterals = new List<string>
         {
@@ -40,14 +32,66 @@
             "grestore"
         };
 
+        private static readonly List<string> _breakBeforeLiterals = new List<string>
+        {
+            "begin",
+            "end",
+            "save",
+            "restore",
+            "gsave",
+            "grestore"
+        };
+
+        #endregion
+
+
+        #region Constructors and Destructors
+
+        public PostScriptFormatter()
+        {
+            FormatCode = true;
+            RemoveOperatorAliases = true;
+            MaxLineLength = 125;
+        }
+
+        #endregion
+
+
+        #region Properties
+
+        public bool FormatCode
+        {
+            get;
+            set;
+        }
+
+        public int MaxLineLength
+        {
+            get;
+            set;
+        }
+
+        public bool RemoveOperatorAliases
+        {
+            get;
+            set;
+        }
+
+        #endregion
+
+
+        #region Public Methods
 
         public string Format(string postScript)
         {
-            PostScriptReader reader = new PostScriptReader(postScript);
+            var reader = new PostScriptReader(postScript);
 
             List<Token> tokens = reader.ReadToEnd().ToList();
 
-            UnfoldDefinitions(tokens);
+            if (RemoveOperatorAliases)
+            {
+                RemoveAliases(tokens);
+            }
 
             BlockNode tree = SyntaxTreeBuilder.Build(tokens);
 
@@ -60,110 +104,58 @@
             SyntaxTreeBuilder.GroupNodes(tree, "save", "restore");
             SyntaxTreeBuilder.GroupNodes(tree, "gsave", "grestore");
 
-            StringBuilder result = new StringBuilder();
-            Format(0, result, tree);
+            var result = new StringBuilder();
+
+            if (FormatCode)
+            {
+                Format(0, result, tree);
+            }
+            else
+            {
+                WriteUnformattedCode(tokens, result);
+            }
 
             return result.ToString();
         }
 
+        #endregion
 
-        private static void Format(int indentSize, StringBuilder result, BlockNode tree)
+
+        #region Methods
+
+        private bool BreakLineAfter(INode node)
         {
-            StringBuilder codeLine = new StringBuilder();
-
-            Action appendLine = () =>
+            var commentNode = node as CommentNode;
+            if (commentNode != null)
             {
-                string[] lines = codeLine.ToString().Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
-                string indent = new string(' ', indentSize * 2);
-
-                foreach (var line in lines)
-                {
-                    result.AppendLine(indent + line);
-                }
-
-                codeLine.Clear();
-            };
-
-            Action<string> append = text =>
-            {
-                if (codeLine.Length > 0)
-                {
-                    codeLine.Append(' ');
-                }
-
-                codeLine.Append(text);
-            };
-
-            const int maxLineLength = 125;
-
-            foreach (var node in tree.Children)
-            {
-                string text = node.Text;
-                int currentLineLength = codeLine.Length;
-
-                BlockNode blockNode = node as BlockNode;
-
-                if (blockNode != null)
-                {
-                    bool isProcedure = blockNode is ProcedureNode;
-
-                    if (!isProcedure || blockNode.Children.Count > 2 || blockNode.Children.Any(n => n is BlockNode)
-                        || (currentLineLength + text.Length + 1) >= maxLineLength)
-                    {
-                        appendLine();
-                        append(blockNode.StartNode.Text);
-                        appendLine();
-
-                        Format(indentSize + 1, result, blockNode);
-                        appendLine();
-                        append(blockNode.EndNode.Text);
-                        appendLine();
-
-                        continue;
-                    }
-                }
-
-                if (BreakLineBefore(node) || (currentLineLength + text.Length + 1) >= maxLineLength)
-                {
-                    appendLine();
-                }
-
-                append(text);
-
-                if (BreakLineAfter(node) || currentLineLength >= maxLineLength)
-                {
-                    appendLine();
-                }
+                return true;
             }
 
-            appendLine();
+            var literalNode = node as LiteralNode;
+            if (literalNode != null && _breakAfterLiterals.Contains(node.Text))
+            {
+                return true;
+            }
+
+            return false;
         }
 
 
-        private void UnfoldDefinitions(List<Token> tokens)
+        private bool BreakLineBefore(INode node)
         {
-            while (true)
+            var commentNode = node as CommentNode;
+            if (commentNode != null && node.Text.StartsWith("%%", StringComparison.Ordinal))
             {
-                Tuple<string, string> alias = FindAlias(tokens);
-
-                if (alias == null)
-                {
-                    break;
-                }
-
-                for (int index = 0; index < tokens.Count; index++)
-                {
-                    var token = tokens[index];
-
-                    if (token.Type != TokenType.Literal || token.Text != alias.Item1)
-                    {
-                        continue;
-                    }
-
-                    tokens[index] = new Token(TokenType.Literal, alias.Item2, token.Line, token.Column);
-                }
+                return true;
             }
+
+            var literalNode = node as LiteralNode;
+            if (literalNode != null && _breakBeforeLiterals.Contains(node.Text))
+            {
+                return true;
+            }
+
+            return false;
         }
 
 
@@ -193,9 +185,9 @@
                 return token.Text == name;
             };
 
-            for (int index = 0; index < tokens.Count; index++)
+            for (var index = 0; index < tokens.Count; index++)
             {
-                var token = tokens[index];
+                Token token = tokens[index];
 
                 if (token.Type == TokenType.Comment && token.Text.StartsWith("%%EndProlog", StringComparison.Ordinal))
                 {
@@ -224,39 +216,129 @@
         }
 
 
-        private static bool BreakLineBefore(INode node)
+        private void Format(int level, StringBuilder result, BlockNode tree)
         {
-            CommentNode commentNode = node as CommentNode;
-            if (commentNode != null && node.Text.StartsWith("%%", StringComparison.Ordinal))
+            var codeLine = new StringBuilder();
+
+            Action appendLine = () =>
             {
-                return true;
+                string[] lines = codeLine.ToString().Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+                var indent = new string(' ', level * 2);
+
+                foreach (string line in lines)
+                {
+                    result.AppendLine(indent + line);
+                }
+
+                codeLine.Clear();
+            };
+
+            Action<string> append = text =>
+            {
+                if (codeLine.Length > 0)
+                {
+                    codeLine.Append(' ');
+                }
+
+                codeLine.Append(text);
+            };
+
+            foreach (INode node in tree.Children)
+            {
+                string text = node.Text;
+                int currentLineLength = codeLine.Length;
+
+                var blockNode = node as BlockNode;
+
+                if (blockNode != null)
+                {
+                    bool isProcedure = blockNode is ProcedureNode;
+
+                    if (!isProcedure || blockNode.Children.Count > 2 || blockNode.Children.Any(n => n is BlockNode)
+                        || (currentLineLength + text.Length + 1) >= MaxLineLength)
+                    {
+                        appendLine();
+                        append(blockNode.StartNode.Text);
+                        appendLine();
+
+                        Format(level + 1, result, blockNode);
+                        appendLine();
+                        append(blockNode.EndNode.Text);
+                        appendLine();
+
+                        continue;
+                    }
+                }
+
+                if (BreakLineBefore(node) || (currentLineLength + text.Length + 1) >= MaxLineLength)
+                {
+                    appendLine();
+                }
+
+                append(text);
+
+                if (BreakLineAfter(node) || currentLineLength >= MaxLineLength)
+                {
+                    appendLine();
+                }
             }
 
-            LiteralNode literalNode = node as LiteralNode;
-            if (literalNode != null && _breakBeforeLiterals.Contains(node.Text))
-            {
-                return true;
-            }
-
-            return false;
+            appendLine();
         }
 
 
-        private static bool BreakLineAfter(INode node)
+        private void RemoveAliases(List<Token> tokens)
         {
-            CommentNode commentNode = node as CommentNode;
-            if (commentNode != null)
+            while (true)
             {
-                return true;
-            }
+                Tuple<string, string> alias = FindAlias(tokens);
 
-            LiteralNode literalNode = node as LiteralNode;
-            if (literalNode != null && _breakAfterLiterals.Contains(node.Text))
-            {
-                return true;
-            }
+                if (alias == null)
+                {
+                    break;
+                }
 
-            return false;
+                for (var index = 0; index < tokens.Count; index++)
+                {
+                    Token token = tokens[index];
+
+                    if (token.Type != TokenType.Literal || token.Text != alias.Item1)
+                    {
+                        continue;
+                    }
+
+                    tokens[index] = new Token(
+                        TokenType.Literal,
+                        alias.Item2,
+                        token.Line,
+                        token.Column,
+                        token.WhitespaceBefore);
+                }
+            }
         }
+
+
+        private void WriteUnformattedCode(List<Token> tokens, StringBuilder result)
+        {
+            Token previousToken = null;
+
+            foreach (Token token in tokens)
+            {
+                if (previousToken != null && previousToken.Line < token.Line)
+                {
+                    for (var i = 0; i < token.Line - previousToken.Line; i++)
+                    {
+                        result.AppendLine();
+                    }
+                }
+
+                result.Append(token.WhitespaceBefore + token.Text);
+
+                previousToken = token;
+            }
+        }
+
+        #endregion
     }
 }
