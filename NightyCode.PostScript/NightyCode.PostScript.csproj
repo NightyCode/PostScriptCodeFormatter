@@ -37,17 +37,17 @@
     <!-- A reference to the entire .NET Framework is automatically included -->
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="SyntaxTree\BlockNode.cs" />
-    <Compile Include="SyntaxTree\CommentNode.cs" />
-    <Compile Include="SyntaxTree\LiteralNode.cs" />
-    <Compile Include="SyntaxTree\INode.cs" />
-    <Compile Include="SyntaxTree\ProcedureNode.cs" />
+    <Compile Include="Syntax\BlockNode.cs" />
+    <Compile Include="Syntax\CommentNode.cs" />
+    <Compile Include="Syntax\LiteralNode.cs" />
+    <Compile Include="Syntax\INode.cs" />
+    <Compile Include="Syntax\ProcedureNode.cs" />
     <Compile Include="PostScriptFormatter.cs" />
     <Compile Include="PostScriptReader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SyntaxErrorException.cs" />
-    <Compile Include="SyntaxTree\StringNode.cs" />
-    <Compile Include="SyntaxTree\SyntaxTreeBuilder.cs" />
+    <Compile Include="Syntax\StringNode.cs" />
+    <Compile Include="Syntax\SyntaxTreeBuilder.cs" />
     <Compile Include="Token.cs" />
     <Compile Include="TokenType.cs" />
   </ItemGroup>

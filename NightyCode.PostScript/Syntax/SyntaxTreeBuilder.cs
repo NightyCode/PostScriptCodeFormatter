@@ -1,4 +1,4 @@
-﻿namespace NightyCode.PostScript.SyntaxTree
+﻿namespace NightyCode.PostScript.Syntax
 {
     #region Namespace Imports
 

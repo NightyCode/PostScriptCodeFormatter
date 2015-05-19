@@ -7,7 +7,7 @@
     using System.Linq;
     using System.Text;
 
-    using NightyCode.PostScript.SyntaxTree;
+    using NightyCode.PostScript.Syntax;
 
     #endregion
 
