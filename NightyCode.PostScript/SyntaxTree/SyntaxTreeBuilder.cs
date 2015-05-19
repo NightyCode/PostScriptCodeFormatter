@@ -10,53 +10,19 @@
 
     public static class SyntaxTreeBuilder
     {
-        public static IEnumerable<Token> GetTokens(PostScriptReader reader)
+        #region Public Methods
+
+        public static void Group(this BlockNode node, string startLiteral, string endLiteral)
         {
-            while (true)
-            {
-                Token token = reader.Read();
-
-                if (token == null)
-                {
-                    yield break;
-                }
-
-                yield return token;
-            }
-        }
-
-
-        public static BlockNode Build(PostScriptReader reader)
-        {
-            return Build(GetTokens(reader));
-        }
-
-
-        public static BlockNode Build(IEnumerable<Token> tokens)
-        {
-            IEnumerator<Token> enumerator = tokens.GetEnumerator();
-
-            BlockNode root = new BlockNode();
-
-            while (enumerator.MoveNext())
-            {
-                root.Children.Add(CreateNode(enumerator, enumerator.Current));
-            }
-
-            return root;
-        }
-
-
-        public static void GroupNodes(BlockNode node, string startLiteral, string endLiteral)
-        {
-            List<LiteralNode> nodes = node.Children.OfType<LiteralNode>().Where(n => n.Text == startLiteral || n.Text == endLiteral).ToList();
+            List<LiteralNode> nodes =
+                node.Children.OfType<LiteralNode>().Where(n => n.Text == startLiteral || n.Text == endLiteral).ToList();
 
             if (nodes.Count >= 2 && nodes.Count % 2 == 0)
             {
                 int startIndex = -1;
                 int endIndex = -1;
 
-                for (int i = 0; i < nodes.Count - 1; i ++)
+                for (var i = 0; i < nodes.Count - 1; i ++)
                 {
                     LiteralNode blockStart = nodes[i];
 
@@ -88,42 +54,42 @@
 
                     node.Children.Insert(startIndex, new BlockNode(startNode, endNode, children));
 
-                    GroupNodes(node, startLiteral, endLiteral);
+                    Group(node, startLiteral, endLiteral);
 
                     return;
                 }
             }
 
-            foreach (var blockNode in node.Children.OfType<BlockNode>())
+            foreach (BlockNode blockNode in node.Children.OfType<BlockNode>())
             {
-                GroupNodes(blockNode, startLiteral, endLiteral);
+                Group(blockNode, startLiteral, endLiteral);
             }
         }
 
 
-        private static INode CreateNode(IEnumerator<Token> enumerator, Token token)
+        public static BlockNode Parse(this IEnumerable<Token> tokens)
         {
-            switch (token.Type)
+            IEnumerator<Token> enumerator = tokens.GetEnumerator();
+
+            var root = new BlockNode();
+
+            while (enumerator.MoveNext())
             {
-                case TokenType.Comment:
-                    return new CommentNode(token);
-
-                case TokenType.String:
-                    return new StringNode(token);
-
-                case TokenType.ProcedureStart:
-                    return BuildProcedureNode(enumerator, token);
-
-                default:
-                    return new LiteralNode(token);
+                root.Children.Add(CreateNode(enumerator, enumerator.Current));
             }
+
+            return root;
         }
 
+        #endregion
+
+
+        #region Methods
 
         private static INode BuildProcedureNode(IEnumerator<Token> enumerator, Token startToken)
         {
             Token endToken = null;
-            List<INode> children = new List<INode>();
+            var children = new List<INode>();
 
             while (true)
             {
@@ -153,5 +119,26 @@
 
             return new ProcedureNode(startNode, endNode, children);
         }
+
+
+        private static INode CreateNode(IEnumerator<Token> enumerator, Token token)
+        {
+            switch (token.Type)
+            {
+                case TokenType.Comment:
+                    return new CommentNode(token);
+
+                case TokenType.String:
+                    return new StringNode(token);
+
+                case TokenType.ProcedureStart:
+                    return BuildProcedureNode(enumerator, token);
+
+                default:
+                    return new LiteralNode(token);
+            }
+        }
+
+        #endregion
     }
 }

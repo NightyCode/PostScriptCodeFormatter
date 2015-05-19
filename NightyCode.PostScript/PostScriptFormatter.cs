@@ -93,21 +93,21 @@
                 RemoveAliases(tokens);
             }
 
-            BlockNode tree = SyntaxTreeBuilder.Build(tokens);
-
-            SyntaxTreeBuilder.GroupNodes(tree, "%%BeginProlog", "%%EndProlog");
-            SyntaxTreeBuilder.GroupNodes(tree, "%%BeginSetup", "%%EndSetup");
-            SyntaxTreeBuilder.GroupNodes(tree, "%%BeginPageSetup", "%%EndPageSetup");
-            SyntaxTreeBuilder.GroupNodes(tree, "%%BeginDefaults", "%%EndDefaults");
-
-            SyntaxTreeBuilder.GroupNodes(tree, "begin", "end");
-            SyntaxTreeBuilder.GroupNodes(tree, "save", "restore");
-            SyntaxTreeBuilder.GroupNodes(tree, "gsave", "grestore");
+            BlockNode tree = tokens.Parse();
 
             var result = new StringBuilder();
 
             if (FormatCode)
             {
+                tree.Group("%%BeginProlog", "%%EndProlog");
+                tree.Group("%%BeginSetup", "%%EndSetup");
+                tree.Group("%%BeginPageSetup", "%%EndPageSetup");
+                tree.Group("%%BeginDefaults", "%%EndDefaults");
+
+                tree.Group("begin", "end");
+                tree.Group("save", "restore");
+                tree.Group("gsave", "grestore");
+
                 Format(0, result, tree);
             }
             else
