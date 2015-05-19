@@ -88,12 +88,12 @@
 
             List<Token> tokens = reader.ReadToEnd().ToList();
 
+            BlockNode tree = tokens.Parse();
+
             if (RemoveOperatorAliases)
             {
                 RemoveAliases(tokens);
             }
-
-            BlockNode tree = tokens.Parse();
 
             var result = new StringBuilder();
 
@@ -112,7 +112,7 @@
             }
             else
             {
-                WriteUnformattedCode(tokens, result);
+                WriteUnformattedCode(tree.ToTokens(), result);
             }
 
             return result.ToString();
@@ -319,7 +319,7 @@
         }
 
 
-        private void WriteUnformattedCode(List<Token> tokens, StringBuilder result)
+        private void WriteUnformattedCode(IEnumerable<Token> tokens, StringBuilder result)
         {
             Token previousToken = null;
 

@@ -81,6 +81,21 @@
             return root;
         }
 
+
+        public static IEnumerable<Token> ToTokens(this INode node)
+        {
+            var blockNode = node as BlockNode;
+
+            if (blockNode != null)
+            {
+                return blockNode.ToTokens();
+            }
+
+            var literalNode = (LiteralNode)node;
+
+            return new List<Token> { literalNode.Token };
+        }
+
         #endregion
 
 
@@ -136,6 +151,36 @@
 
                 default:
                     return new LiteralNode(token);
+            }
+        }
+
+
+        private static IEnumerable<Token> ToTokens(this BlockNode node)
+        {
+            if (node.StartNode != null)
+            {
+                foreach (Token token in node.StartNode.ToTokens())
+                {
+                    yield return token;
+                }
+            }
+
+            foreach (INode child in node.Children)
+            {
+                foreach (Token token in child.ToTokens())
+                {
+                    yield return token;
+                }
+            }
+
+            if (node.EndNode == null)
+            {
+                yield break;
+            }
+
+            foreach (Token token in node.EndNode.ToTokens())
+            {
+                yield return token;
             }
         }
 
