@@ -34,13 +34,11 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <!-- A reference to the entire .NET Framework is automatically included -->
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Syntax\BlockNode.cs" />
+    <Compile Include="Syntax\SyntaxBlock.cs" />
     <Compile Include="Syntax\CommentNode.cs" />
     <Compile Include="Syntax\LiteralNode.cs" />
-    <Compile Include="Syntax\INode.cs" />
+    <Compile Include="Syntax\SyntaxNode.cs" />
+    <Compile Include="Syntax\NodeExtensions.cs" />
     <Compile Include="Syntax\ProcedureNode.cs" />
     <Compile Include="PostScriptFormatter.cs" />
     <Compile Include="PostScriptReader.cs" />
@@ -50,6 +48,15 @@
     <Compile Include="Syntax\SyntaxTreeBuilder.cs" />
     <Compile Include="Token.cs" />
     <Compile Include="TokenType.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="JetBrains.Annotations.PCL328, Version=9.1.1.0, Culture=neutral, PublicKeyToken=1010a0d8d6380325, processorArchitecture=MSIL">
+      <HintPath>..\packages\JetBrains.Annotations.9.1.1\lib\portable-net4+sl5+netcore45+wpa81+wp8+MonoAndroid1+MonoTouch1\JetBrains.Annotations.PCL328.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

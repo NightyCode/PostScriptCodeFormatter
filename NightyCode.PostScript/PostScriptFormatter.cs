@@ -88,7 +88,7 @@
 
             List<Token> tokens = reader.ReadToEnd().ToList();
 
-            BlockNode tree = tokens.Parse();
+            SyntaxBlock tree = tokens.Parse();
 
             if (RemoveOperatorAliases)
             {
@@ -123,7 +123,7 @@
 
         #region Methods
 
-        private bool BreakLineAfter(INode node)
+        private bool BreakLineAfter(SyntaxNode node)
         {
             var commentNode = node as CommentNode;
             if (commentNode != null)
@@ -141,7 +141,7 @@
         }
 
 
-        private bool BreakLineBefore(INode node)
+        private bool BreakLineBefore(SyntaxNode node)
         {
             var commentNode = node as CommentNode;
             if (commentNode != null && node.Text.StartsWith("%%", StringComparison.Ordinal))
@@ -216,7 +216,7 @@
         }
 
 
-        private void Format(int level, StringBuilder result, BlockNode tree)
+        private void Format(int level, StringBuilder result, SyntaxBlock tree)
         {
             var codeLine = new StringBuilder();
 
@@ -244,28 +244,35 @@
                 codeLine.Append(text);
             };
 
-            foreach (INode node in tree.Children)
+            foreach (SyntaxNode node in tree.Nodes)
             {
                 string text = node.Text;
                 int currentLineLength = codeLine.Length;
 
-                var blockNode = node as BlockNode;
+                var blockNode = node as SyntaxBlock;
 
                 if (blockNode != null)
                 {
                     bool isProcedure = blockNode is ProcedureNode;
 
-                    if (!isProcedure || blockNode.Children.Count > 2 || blockNode.Children.Any(n => n is BlockNode)
+                    if (!isProcedure || blockNode.Nodes.Count > 2 || blockNode.Nodes.Any(n => n is SyntaxBlock)
                         || (currentLineLength + text.Length + 1) >= MaxLineLength)
                     {
-                        appendLine();
-                        append(blockNode.StartNode.Text);
-                        appendLine();
-
+                        if (blockNode.StartNode != null)
+                        {
+                            appendLine();
+                            append(blockNode.StartNode.Text);
+                            appendLine();
+                        }
+                        
                         Format(level + 1, result, blockNode);
-                        appendLine();
-                        append(blockNode.EndNode.Text);
-                        appendLine();
+
+                        if (blockNode.EndNode != null)
+                        {
+                            appendLine();
+                            append(blockNode.EndNode.Text);
+                            appendLine();
+                        }
 
                         continue;
                     }

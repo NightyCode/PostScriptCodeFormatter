@@ -7,7 +7,7 @@
     #endregion
 
 
-    public class LiteralNode : INode
+    public class LiteralNode : SyntaxNode
     {
         #region Constants and Fields
 
@@ -28,7 +28,7 @@
 
         #region Properties
 
-        public string Text
+        public override string Text
         {
             get
             {

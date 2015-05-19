@@ -12,10 +12,10 @@
     {
         #region Public Methods
 
-        public static void Group(this BlockNode node, string startLiteral, string endLiteral)
+        public static void Group(this SyntaxBlock node, string startLiteral, string endLiteral)
         {
             List<LiteralNode> nodes =
-                node.Children.OfType<LiteralNode>().Where(n => n.Text == startLiteral || n.Text == endLiteral).ToList();
+                node.Nodes.OfType<LiteralNode>().Where(n => n.Text == startLiteral || n.Text == endLiteral).ToList();
 
             if (nodes.Count >= 2 && nodes.Count % 2 == 0)
             {
@@ -38,8 +38,8 @@
                         continue;
                     }
 
-                    startIndex = node.Children.IndexOf(blockStart);
-                    endIndex = node.Children.IndexOf(blockEnd);
+                    startIndex = node.IndexOfNode(blockStart);
+                    endIndex = node.IndexOfNode(blockEnd);
 
                     break;
                 }
@@ -47,12 +47,20 @@
                 if (startIndex != -1 && endIndex != -1)
                 {
                     int childNodeCount = endIndex - (startIndex + 1);
-                    List<INode> children = node.Children.GetRange(startIndex + 1, childNodeCount);
-                    INode startNode = node.Children[startIndex];
-                    INode endNode = node.Children[endIndex];
-                    node.Children.RemoveRange(startIndex, childNodeCount + 2);
+                    List<SyntaxNode> children = node.GetNodesRange(startIndex + 1, childNodeCount);
+                    SyntaxNode startNode = node.Nodes[startIndex];
+                    SyntaxNode endNode = node.Nodes[endIndex];
 
-                    node.Children.Insert(startIndex, new BlockNode(startNode, endNode, children));
+                    node.RemoveNodesRange(startIndex, childNodeCount + 2);
+
+                    var syntaxBlock = new SyntaxBlock { StartNode = startNode, EndNode = endNode };
+
+                    foreach (SyntaxNode child in children)
+                    {
+                        syntaxBlock.AddNode(child);
+                    }
+
+                    node.InsertNode(startIndex, syntaxBlock);
 
                     Group(node, startLiteral, endLiteral);
 
@@ -60,31 +68,33 @@
                 }
             }
 
-            foreach (BlockNode blockNode in node.Children.OfType<BlockNode>())
+            foreach (SyntaxBlock blockNode in node.Nodes.OfType<SyntaxBlock>())
             {
                 Group(blockNode, startLiteral, endLiteral);
             }
         }
 
 
-        public static BlockNode Parse(this IEnumerable<Token> tokens)
+        public static SyntaxBlock Parse(this IEnumerable<Token> tokens)
         {
             IEnumerator<Token> enumerator = tokens.GetEnumerator();
 
-            var root = new BlockNode();
+            var root = new SyntaxBlock();
 
             while (enumerator.MoveNext())
             {
-                root.Children.Add(CreateNode(enumerator, enumerator.Current));
+                root.AddNode(CreateNode(enumerator, enumerator.Current));
             }
+
+            root.Analyze();
 
             return root;
         }
 
 
-        public static IEnumerable<Token> ToTokens(this INode node)
+        public static IEnumerable<Token> ToTokens(this SyntaxNode node)
         {
-            var blockNode = node as BlockNode;
+            var blockNode = node as SyntaxBlock;
 
             if (blockNode != null)
             {
@@ -101,10 +111,32 @@
 
         #region Methods
 
-        private static INode BuildProcedureNode(IEnumerator<Token> enumerator, Token startToken)
+        private static void Analyze(this SyntaxBlock tree)
         {
-            Token endToken = null;
-            var children = new List<INode>();
+//            for (var index = 0; index < tree.Nodes.Count; index++)
+//            {
+//                LiteralNode defNode = tree.TryGetLiteralNode(index, "def");
+//
+//                if (defNode == null)
+//                {
+//                    continue;
+//                }
+//
+//                var node = tree.TryGetNode<SyntaxNode>(index - 1);
+//
+//                if (node.IsLiteral("load"))
+//                {
+//                }
+//                else if (node.IsLiteral("bind"))
+//                {
+//                }
+//            }
+        }
+
+
+        private static SyntaxNode BuildProcedureNode(IEnumerator<Token> enumerator, Token startToken)
+        {
+            var procedureNode = new ProcedureNode { StartNode = new LiteralNode(startToken) };
 
             while (true)
             {
@@ -117,26 +149,18 @@
 
                 if (token.Type == TokenType.ProcedureEnd)
                 {
-                    endToken = token;
+                    procedureNode.EndNode = new LiteralNode(token);
                     break;
                 }
 
-                children.Add(CreateNode(enumerator, token));
+                procedureNode.AddNode(CreateNode(enumerator, token));
             }
 
-            var startNode = new LiteralNode(startToken);
-
-            LiteralNode endNode = null;
-            if (endToken != null)
-            {
-                endNode = new LiteralNode(endToken);
-            }
-
-            return new ProcedureNode(startNode, endNode, children);
+            return procedureNode;
         }
 
 
-        private static INode CreateNode(IEnumerator<Token> enumerator, Token token)
+        private static SyntaxNode CreateNode(IEnumerator<Token> enumerator, Token token)
         {
             switch (token.Type)
             {
@@ -155,7 +179,7 @@
         }
 
 
-        private static IEnumerable<Token> ToTokens(this BlockNode node)
+        private static IEnumerable<Token> ToTokens(this SyntaxBlock node)
         {
             if (node.StartNode != null)
             {
@@ -165,7 +189,7 @@
                 }
             }
 
-            foreach (INode child in node.Children)
+            foreach (SyntaxNode child in node.Nodes)
             {
                 foreach (Token token in child.ToTokens())
                 {
@@ -182,6 +206,42 @@
             {
                 yield return token;
             }
+        }
+
+
+        private static LiteralNode TryGetLiteralNode(this SyntaxBlock tree, int index, string name)
+        {
+            return tree.Nodes.TryGetLiteralNode(index, name);
+        }
+
+
+        private static LiteralNode TryGetLiteralNode(this IReadOnlyList<SyntaxNode> nodes, int index, string name)
+        {
+            var literalNode = nodes.TryGetNode<LiteralNode>(index);
+
+            if (literalNode == null)
+            {
+                return null;
+            }
+
+            return literalNode.Text == name ? literalNode : null;
+        }
+
+
+        private static TNode TryGetNode<TNode>(this SyntaxBlock tree, int index) where TNode : SyntaxNode
+        {
+            return tree.Nodes.TryGetNode<TNode>(index);
+        }
+
+
+        private static TNode TryGetNode<TNode>(this IReadOnlyList<SyntaxNode> nodes, int index) where TNode : SyntaxNode
+        {
+            if (index < 0 || index >= nodes.Count)
+            {
+                return null;
+            }
+
+            return nodes[index] as TNode;
         }
 
         #endregion
