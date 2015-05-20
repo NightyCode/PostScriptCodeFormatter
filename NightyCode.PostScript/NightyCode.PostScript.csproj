@@ -34,6 +34,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Syntax\OperatorNode.cs" />
+    <Compile Include="Syntax\RegionBlock.cs" />
     <Compile Include="Syntax\SyntaxBlock.cs" />
     <Compile Include="Syntax\CommentNode.cs" />
     <Compile Include="Syntax\LiteralNode.cs" />

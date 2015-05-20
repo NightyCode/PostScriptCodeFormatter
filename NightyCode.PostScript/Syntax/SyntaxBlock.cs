@@ -10,7 +10,7 @@
     #endregion
 
 
-    public class SyntaxBlock : SyntaxNode
+    public abstract class SyntaxBlock : SyntaxNode
     {
         #region Constants and Fields
 

@@ -251,11 +251,12 @@
 
                 var blockNode = node as SyntaxBlock;
 
-                if (blockNode != null)
+                if (blockNode != null && (blockNode is ProcedureNode || blockNode is RegionBlock))
                 {
-                    bool isProcedure = blockNode is ProcedureNode;
+                    bool isRegion = blockNode is RegionBlock;
 
-                    if (!isProcedure || blockNode.Nodes.Count > 2 || blockNode.Nodes.Any(n => n is SyntaxBlock)
+                    if (isRegion || blockNode.Nodes.Count > 2
+                        || blockNode.Nodes.Any(n => n is ProcedureNode || n is RegionBlock)
                         || (currentLineLength + text.Length + 1) >= MaxLineLength)
                     {
                         if (blockNode.StartNode != null)
@@ -264,7 +265,7 @@
                             append(blockNode.StartNode.Text);
                             appendLine();
                         }
-                        
+
                         Format(level + 1, result, blockNode);
 
                         if (blockNode.EndNode != null)

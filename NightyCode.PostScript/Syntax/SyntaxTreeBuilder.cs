@@ -2,8 +2,11 @@
 {
     #region Namespace Imports
 
+    using System;
     using System.Collections.Generic;
     using System.Linq;
+
+    using JetBrains.Annotations;
 
     #endregion
 
@@ -53,7 +56,7 @@
 
                     node.RemoveNodesRange(startIndex, childNodeCount + 2);
 
-                    var syntaxBlock = new SyntaxBlock { StartNode = startNode, EndNode = endNode };
+                    var syntaxBlock = new RegionBlock { StartNode = startNode, EndNode = endNode };
 
                     foreach (SyntaxNode child in children)
                     {
@@ -79,7 +82,7 @@
         {
             IEnumerator<Token> enumerator = tokens.GetEnumerator();
 
-            var root = new SyntaxBlock();
+            var root = new ProcedureNode();
 
             while (enumerator.MoveNext())
             {
@@ -113,24 +116,49 @@
 
         private static void Analyze(this SyntaxBlock tree)
         {
-//            for (var index = 0; index < tree.Nodes.Count; index++)
-//            {
-//                LiteralNode defNode = tree.TryGetLiteralNode(index, "def");
-//
-//                if (defNode == null)
-//                {
-//                    continue;
-//                }
-//
-//                var node = tree.TryGetNode<SyntaxNode>(index - 1);
-//
-//                if (node.IsLiteral("load"))
-//                {
-//                }
-//                else if (node.IsLiteral("bind"))
-//                {
-//                }
-//            }
+            for (var index = 0; index < tree.Nodes.Count; index++)
+            {
+                SyntaxNode currentNode = tree.Nodes[index];
+                var procedureNode = currentNode as ProcedureNode;
+
+                if (procedureNode != null)
+                {
+                    procedureNode.Analyze();
+
+                    continue;
+                }
+
+                var literalNode = (LiteralNode)currentNode;
+
+                if (literalNode is StringNode || literalNode is CommentNode)
+                {
+                    continue;
+                }
+
+                OperatorNode operatorNode = null;
+
+                if (literalNode.Text == "load")
+                {
+                    operatorNode = ProcessLoadOperator(tree.Nodes, index, currentNode);
+                }
+                else if (literalNode.Text == "bind")
+                {
+                    operatorNode = ProcessBindOperator(tree.Nodes, index, currentNode);
+                }
+                else if (literalNode.Text == "def")
+                {
+                    operatorNode = ProcessDefOperator(tree.Nodes, index, currentNode);
+                }
+
+                if (operatorNode == null)
+                {
+                    continue;
+                }
+
+                index = index - (operatorNode.Nodes.Count - 1);
+                tree.RemoveNodesRange(index, operatorNode.Nodes.Count);
+                tree.InsertNode(index, operatorNode);
+            }
         }
 
 
@@ -179,6 +207,84 @@
         }
 
 
+        private static OperatorNode ProcessBindOperator(
+            IReadOnlyList<SyntaxNode> nodes,
+            int index,
+            SyntaxNode bindOperatorNode)
+        {
+            SyntaxNode procedureNode = nodes.TryGetNode<ProcedureNode>(index - 1);
+            SyntaxNode loadOperatorNode = nodes.TryGetOperatorNode(index - 1, "load");
+
+            if (procedureNode == null && loadOperatorNode == null)
+            {
+                return null;
+            }
+
+            var operatorNode = new OperatorNode();
+            operatorNode.AddNode(procedureNode ?? loadOperatorNode);
+            operatorNode.AddNode(bindOperatorNode);
+
+            return operatorNode;
+        }
+
+
+        private static OperatorNode ProcessDefOperator(
+            IReadOnlyList<SyntaxNode> nodes,
+            int index,
+            SyntaxNode currentNode)
+        {
+            SyntaxNode valueNode = null;
+            var literalNode = nodes.TryGetNode<LiteralNode>(index - 1);
+            var operatorNode = nodes.TryGetNode<OperatorNode>(index - 1);
+
+            if (operatorNode != null)
+            {
+                if (operatorNode.OperatorName == "load" || operatorNode.OperatorName == "bind")
+                {
+                    valueNode = operatorNode;
+                }
+            }
+            else
+            {
+                valueNode = literalNode;
+            }
+
+            var keyNode = nodes.TryGetNode<LiteralNode>(index - 2);
+
+            if (keyNode == null || valueNode == null)
+            {
+                return null;
+            }
+
+            var defOperatorNode = new OperatorNode();
+            defOperatorNode.AddNode(keyNode);
+            defOperatorNode.AddNode(valueNode);
+            defOperatorNode.AddNode(currentNode);
+
+            return defOperatorNode;
+        }
+
+
+        private static OperatorNode ProcessLoadOperator(
+            IReadOnlyList<SyntaxNode> nodes,
+            int index,
+            SyntaxNode loadOperatorNode)
+        {
+            LiteralNode nameNode = nodes.TryGetLiteralNameNode(index - 1);
+
+            if (nameNode == null)
+            {
+                return null;
+            }
+
+            var operatorNode = new OperatorNode();
+            operatorNode.AddNode(nameNode);
+            operatorNode.AddNode(loadOperatorNode);
+
+            return operatorNode;
+        }
+
+
         private static IEnumerable<Token> ToTokens(this SyntaxBlock node)
         {
             if (node.StartNode != null)
@@ -209,12 +315,28 @@
         }
 
 
+        [CanBeNull]
+        private static LiteralNode TryGetLiteralNameNode(this IReadOnlyList<SyntaxNode> nodes, int index)
+        {
+            var literalNode = nodes.TryGetNode<LiteralNode>(index);
+
+            if (literalNode == null)
+            {
+                return null;
+            }
+
+            return literalNode.Text.StartsWith("/", StringComparison.Ordinal) ? literalNode : null;
+        }
+
+
+        [CanBeNull]
         private static LiteralNode TryGetLiteralNode(this SyntaxBlock tree, int index, string name)
         {
             return tree.Nodes.TryGetLiteralNode(index, name);
         }
 
 
+        [CanBeNull]
         private static LiteralNode TryGetLiteralNode(this IReadOnlyList<SyntaxNode> nodes, int index, string name)
         {
             var literalNode = nodes.TryGetNode<LiteralNode>(index);
@@ -228,12 +350,14 @@
         }
 
 
+        [CanBeNull]
         private static TNode TryGetNode<TNode>(this SyntaxBlock tree, int index) where TNode : SyntaxNode
         {
             return tree.Nodes.TryGetNode<TNode>(index);
         }
 
 
+        [CanBeNull]
         private static TNode TryGetNode<TNode>(this IReadOnlyList<SyntaxNode> nodes, int index) where TNode : SyntaxNode
         {
             if (index < 0 || index >= nodes.Count)
@@ -242,6 +366,20 @@
             }
 
             return nodes[index] as TNode;
+        }
+
+
+        [CanBeNull]
+        private static OperatorNode TryGetOperatorNode(this IReadOnlyList<SyntaxNode> nodes, int index, string name)
+        {
+            var literalNode = nodes.TryGetNode<OperatorNode>(index);
+
+            if (literalNode == null)
+            {
+                return null;
+            }
+
+            return literalNode.Text == name ? literalNode : null;
         }
 
         #endregion
