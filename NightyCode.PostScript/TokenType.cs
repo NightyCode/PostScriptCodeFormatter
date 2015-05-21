@@ -10,6 +10,9 @@
         ArrayEnd,
         ProcedureStart,
         ProcedureEnd,
-        Literal
+        LiteralName,
+        ExecutableName,
+        IntegerNumber,
+        RealNumber
     }
 }

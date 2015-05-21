@@ -33,7 +33,7 @@
         public string Text
         {
             get;
-            private set;
+            internal set;
         }
 
         public TokenType Type

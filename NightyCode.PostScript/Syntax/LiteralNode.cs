@@ -7,7 +7,7 @@
     #endregion
 
 
-    public class LiteralNode : SyntaxNode
+    public abstract class LiteralNode : SyntaxNode
     {
         #region Constants and Fields
 

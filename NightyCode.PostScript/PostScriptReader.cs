@@ -4,6 +4,7 @@
 
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.IO;
     using System.Text;
 
@@ -281,6 +282,7 @@
         private Token ReadLiteral()
         {
             var stop = false;
+            var isLiteralName = false;
 
             _stringBuilder.Clear();
 
@@ -315,6 +317,8 @@
                         {
                             _stringBuilder.Append((char)character);
                             ReadCharacter();
+
+                            isLiteralName = true;
                         }
                         else
                         {
@@ -330,7 +334,45 @@
             }
             while (!stop);
 
-            return CreateToken(TokenType.Literal, _stringBuilder.ToString());
+            string value = _stringBuilder.ToString();
+
+            if (isLiteralName)
+            {
+                return CreateToken(TokenType.LiteralName, value);
+            }
+
+            var tokenType = TokenType.ExecutableName;
+
+            int integer;
+            double real;
+
+            if (int.TryParse(value, out integer))
+            {
+                tokenType = TokenType.IntegerNumber;
+            }
+            else if (double.TryParse(value, out real))
+            {
+                tokenType = TokenType.RealNumber;
+            }
+            else if (value.Contains("#"))
+            {
+                string[] strings = value.Split(new[] { '#' }, StringSplitOptions.RemoveEmptyEntries);
+
+                int radix;
+                if (strings.Length == 2 && int.TryParse(strings[0], out radix))
+                {
+                    try
+                    {
+                        Radix.Decode(strings[1], radix, out real);
+                    }
+                    catch
+                    {
+                        tokenType = TokenType.ExecutableName;
+                    }
+                }
+            }
+
+            return CreateToken(tokenType, value);
         }
 
 

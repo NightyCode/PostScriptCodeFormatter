@@ -88,31 +88,31 @@
 
             List<Token> tokens = reader.ReadToEnd().ToList();
 
-            SyntaxBlock tree = tokens.Parse();
+            ScriptNode scriptNode = tokens.Parse();
 
             if (RemoveOperatorAliases)
             {
-                RemoveAliases(tokens);
+                scriptNode.InlineDefinitions();
             }
 
             var result = new StringBuilder();
 
             if (FormatCode)
             {
-                tree.Group("%%BeginProlog", "%%EndProlog");
-                tree.Group("%%BeginSetup", "%%EndSetup");
-                tree.Group("%%BeginPageSetup", "%%EndPageSetup");
-                tree.Group("%%BeginDefaults", "%%EndDefaults");
+                scriptNode.Group("%%BeginProlog", "%%EndProlog");
+                scriptNode.Group("%%BeginSetup", "%%EndSetup");
+                scriptNode.Group("%%BeginPageSetup", "%%EndPageSetup");
+                scriptNode.Group("%%BeginDefaults", "%%EndDefaults");
 
-                tree.Group("begin", "end");
-                tree.Group("save", "restore");
-                tree.Group("gsave", "grestore");
+                scriptNode.Group("begin", "end");
+                scriptNode.Group("save", "restore");
+                scriptNode.Group("gsave", "grestore");
 
-                Format(0, result, tree);
+                Format(0, result, scriptNode);
             }
             else
             {
-                WriteUnformattedCode(tree.ToTokens(), result);
+                WriteUnformattedCode(scriptNode.ToTokens(), result);
             }
 
             return result.ToString();
@@ -157,64 +157,6 @@
 
             return false;
         }
-
-
-        private Tuple<string, string> FindAlias(List<Token> tokens)
-        {
-            Func<int, bool> isLiteralName = i =>
-            {
-                Token token = tokens.ElementAtOrDefault(i);
-
-                if (token == null || token.Type != TokenType.Literal)
-                {
-                    return false;
-                }
-
-                return token.Text.StartsWith("/", StringComparison.Ordinal);
-            };
-
-            Func<int, string, bool> isExecutableName = (i, name) =>
-            {
-                Token token = tokens.ElementAtOrDefault(i);
-
-                if (token == null || token.Type != TokenType.Literal)
-                {
-                    return false;
-                }
-
-                return token.Text == name;
-            };
-
-            for (var index = 0; index < tokens.Count; index++)
-            {
-                Token token = tokens[index];
-
-                if (token.Type == TokenType.Comment && token.Text.StartsWith("%%EndProlog", StringComparison.Ordinal))
-                {
-                    break;
-                }
-
-                if (token.Type != TokenType.Literal || token.Text != "def")
-                {
-                    continue;
-                }
-
-                if (!isExecutableName(index - 1, "load") || !isLiteralName(index - 2) || !isLiteralName(index - 3))
-                {
-                    continue;
-                }
-
-                string operatorName = tokens[index - 2].Text.Substring(1);
-                string aliasName = tokens[index - 3].Text.Substring(1);
-
-                tokens.RemoveRange(index - 3, 4);
-
-                return new Tuple<string, string>(aliasName, operatorName);
-            }
-
-            return null;
-        }
-
 
         private void Format(int level, StringBuilder result, SyntaxBlock tree)
         {
@@ -293,37 +235,6 @@
             }
 
             appendLine();
-        }
-
-
-        private void RemoveAliases(List<Token> tokens)
-        {
-            while (true)
-            {
-                Tuple<string, string> alias = FindAlias(tokens);
-
-                if (alias == null)
-                {
-                    break;
-                }
-
-                for (var index = 0; index < tokens.Count; index++)
-                {
-                    Token token = tokens[index];
-
-                    if (token.Type != TokenType.Literal || token.Text != alias.Item1)
-                    {
-                        continue;
-                    }
-
-                    tokens[index] = new Token(
-                        TokenType.Literal,
-                        alias.Item2,
-                        token.Line,
-                        token.Column,
-                        token.WhitespaceBefore);
-                }
-            }
         }
 
 

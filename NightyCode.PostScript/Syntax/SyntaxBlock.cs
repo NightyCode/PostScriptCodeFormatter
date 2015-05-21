@@ -15,6 +15,8 @@
         #region Constants and Fields
 
         private readonly List<SyntaxNode> _nodes = new List<SyntaxNode>();
+        private LiteralNode _endNode;
+        private LiteralNode _startNode;
 
         #endregion
 
@@ -22,10 +24,22 @@
         #region Properties
 
         [CanBeNull]
-        public SyntaxNode EndNode
+        public LiteralNode EndNode
         {
-            get;
-            internal set;
+            get
+            {
+                return _endNode;
+            }
+
+            internal set
+            {
+                _endNode = value;
+
+                if (_endNode != null)
+                {
+                    _endNode.Parent = this;
+                }
+            }
         }
 
         public IReadOnlyList<SyntaxNode> Nodes
@@ -37,10 +51,22 @@
         }
 
         [CanBeNull]
-        public SyntaxNode StartNode
+        public LiteralNode StartNode
         {
-            get;
-            internal set;
+            get
+            {
+                return _startNode;
+            }
+
+            internal set
+            {
+                _startNode = value;
+
+                if (_startNode != null)
+                {
+                    _startNode.Parent = this;
+                }
+            }
         }
 
         public override string Text
@@ -92,6 +118,15 @@
         {
             node.Parent = this;
             _nodes.Insert(index, node);
+        }
+
+
+        public void RemoveNode(SyntaxNode node)
+        {
+            if (_nodes.Remove(node))
+            {
+                node.Parent = null;
+            }
         }
 
 
