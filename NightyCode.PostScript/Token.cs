@@ -1,5 +1,12 @@
 ﻿namespace NightyCode.PostScript
 {
+    #region Namespace Imports
+
+    using System.Linq;
+
+    #endregion
+
+
     public class Token
     {
         #region Constructors and Destructors
@@ -30,6 +37,14 @@
             private set;
         }
 
+        public int NumTokenLines
+        {
+            get
+            {
+                return Text.Cast<char>().Count(c => c == '\n');
+            }
+        }
+
         public string Text
         {
             get;
@@ -45,7 +60,7 @@
         public string WhitespaceBefore
         {
             get;
-            private set;
+            internal set;
         }
 
         #endregion

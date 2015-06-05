@@ -48,6 +48,18 @@
             }
         }
 
+        public bool AddTracing
+        {
+            get
+            {
+                return _formatter.AddTracing;
+            }
+            set
+            {
+                _formatter.AddTracing = value;
+            }
+        }
+
         public string ProcessedCode
         {
             get

@@ -4,7 +4,6 @@
 
     using System;
     using System.Collections.Generic;
-    using System.Globalization;
     using System.IO;
     using System.Text;
 
@@ -95,15 +94,16 @@
 
         #region Methods
 
-        private Token CreateToken(TokenType tokenType, string text)
-        {
-            return CreateToken(tokenType, text, _currentLine, _currentColumn);
-        }
-
-
         private Token CreateToken(TokenType tokenType, string text, int line, int column)
         {
-            var token = new Token(tokenType, text, line, column, _whitespaceCharacters.Replace("\n", string.Empty));
+            int lastNewLine = _whitespaceCharacters.LastIndexOf('\n');
+
+            if (lastNewLine >= 0)
+            {
+                _whitespaceCharacters = _whitespaceCharacters.Substring(lastNewLine + 1);
+            }
+
+            var token = new Token(tokenType, text, line, column, _whitespaceCharacters);
             _whitespaceCharacters = string.Empty;
 
             return token;
@@ -156,6 +156,9 @@
 
             var endOfString = false;
 
+            int line = _currentLine;
+            int column = _currentColumn - 1;
+
             while (true)
             {
                 int character = ReadCharacter();
@@ -175,7 +178,7 @@
                             string.Format("Unexpected character sequence '~{0}' in ASCII85 encoded string.", character));
                     }
 
-                    return CreateToken(TokenType.String, _stringBuilder.ToString());
+                    return CreateToken(TokenType.String, _stringBuilder.ToString(), line, column);
                 }
 
                 if (character == '~')
@@ -234,6 +237,9 @@
 
             _stringBuilder.Append("<");
 
+            int line = _currentLine;
+            int column = _currentColumn;
+
             while (true)
             {
                 int character = ReadCharacter();
@@ -247,7 +253,7 @@
 
                 if (character == '>')
                 {
-                    return CreateToken(TokenType.String, _stringBuilder.ToString());
+                    return CreateToken(TokenType.String, _stringBuilder.ToString(), line, column);
                 }
             }
 
@@ -281,6 +287,9 @@
 
         private Token ReadLiteral()
         {
+            int line = _currentLine;
+            int column = _currentColumn + 1;
+
             var stop = false;
             var isLiteralName = false;
 
@@ -331,6 +340,14 @@
                         ReadCharacter();
                         break;
                 }
+
+                if (_stringBuilder.Length != 1)
+                {
+                    continue;
+                }
+
+                line = _currentLine;
+                column = _currentColumn + 1;
             }
             while (!stop);
 
@@ -338,7 +355,7 @@
 
             if (isLiteralName)
             {
-                return CreateToken(TokenType.LiteralName, value);
+                return CreateToken(TokenType.LiteralName, value, line, column);
             }
 
             var tokenType = TokenType.ExecutableName;
@@ -372,7 +389,7 @@
                 }
             }
 
-            return CreateToken(tokenType, value);
+            return CreateToken(tokenType, value, line, column);
         }
 
 
@@ -383,8 +400,12 @@
             // read starting parenthesis.
             _stringBuilder.Append((char)ReadCharacter());
 
+            int line = _currentLine;
+            int column = _currentColumn + 1;
+
             int previousCharacter = -1;
             var openParenthesesCount = 0;
+
             while (true)
             {
                 int character = ReadCharacter();
@@ -425,7 +446,7 @@
                 throw new SyntaxErrorException("Unexpected end of stream while reading string.");
             }
 
-            return CreateToken(TokenType.String, _stringBuilder.ToString());
+            return CreateToken(TokenType.String, _stringBuilder.ToString(), line, column);
         }
 
 
@@ -477,7 +498,7 @@
                             // Read the second < character from stream
                             ReadCharacter();
 
-                            yield return CreateToken(TokenType.DictionaryStart, "<<");
+                            yield return CreateToken(TokenType.DictionaryStart, "<<", _currentLine, _currentColumn - 1);
                         }
                         else
                         {
@@ -502,35 +523,35 @@
                         // Read the second > character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.DictionaryEnd, ">>");
+                        yield return CreateToken(TokenType.DictionaryEnd, ">>", _currentLine, _currentColumn - 1);
                         break;
 
                     case '[':
                         // Read the [ character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.ArrayStart, "[");
+                        yield return CreateToken(TokenType.ArrayStart, "[", _currentLine, _currentColumn);
                         break;
 
                     case ']':
                         // Read the ] character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.ArrayEnd, "]");
+                        yield return CreateToken(TokenType.ArrayEnd, "]", _currentLine, _currentColumn);
                         break;
 
                     case '{':
                         // Read the { character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.ProcedureStart, "{");
+                        yield return CreateToken(TokenType.ProcedureStart, "{", _currentLine, _currentColumn);
                         break;
 
                     case '}':
                         // Read the { character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.ProcedureEnd, "}");
+                        yield return CreateToken(TokenType.ProcedureEnd, "}", _currentLine, _currentColumn);
                         break;
 
                     default:

@@ -1,0 +1,316 @@
+/#userdict userdict def
+/#errordict errordict def
+/#statusdict statusdict def
+/#systemdict systemdict def
+/#globaldict globaldict def
+
+/#Object null def
+
+/#ToString 
+{
+  10000 string cvs
+} bind def
+
+/#SortArray
+{ 
+  /#SortedArray exch store
+  #SortedArray length 1 sub -1 1 
+  {
+    #SortedArray 0 get exch 1 exch 1 exch 
+    {
+      /#CurrentIndex exch store
+      #SortedArray #CurrentIndex get
+      2 copy 
+      0 get exch 
+      0 get gt {exch} if
+      #SortedArray exch #CurrentIndex 1 sub exch put
+    } for 
+    #SortedArray exch #CurrentIndex exch put
+  } for 
+  #SortedArray
+} bind def
+
+/#PrintArrayItems 
+{
+  dup rcheck
+  {
+    {
+      ( ) print
+      #PrintObject
+    } forall
+  }
+  {
+    pop
+    (-no_access-) print
+  }
+  ifelse
+} bind def
+
+/#TypeExec
+{
+  dup 3 1 roll type 2 copy known
+  {
+    get exec
+  }
+  {
+    (-) print #ToString print (-) print pop pop
+  }
+  ifelse
+} bind def
+
+/#PrintArray
+{
+  dup xcheck 
+  {
+    ({proc}) print pop
+    %%({) print 
+    %%#PrintArrayItems 
+    %%( }) print 
+  }
+  {
+    ([) print
+    #PrintArrayItems
+    ( ]) print
+  } ifelse
+} bind def
+
+/#PrintCustomDictionary
+{
+  pop (-dict-) print
+  %(<<) print
+  %dup length array /#DictionaryArray exch store
+  %/#CurrentIndex 0 store
+  %{
+  %  /#CurrentItemArray 2 array store
+  %  #CurrentItemArray exch 1 exch put
+  %  #ToString
+  %  #CurrentItemArray exch 0 exch put
+  %  #DictionaryArray #CurrentIndex #CurrentItemArray put
+  %  /#CurrentIndex #CurrentIndex 1 add store
+  %} forall
+  %
+  %#DictionaryArray #SortArray
+  %{
+  %  #PrintArrayItems
+  %} forall
+  %( >>) print
+} bind def
+
+/#PrintDictionary
+{
+  /#PrintDictAction /#PrintCustomDictionary load store
+  
+  dup #systemdict eq
+  {
+    pop /#PrintDictAction {(systemdict) print} store
+  } if
+  
+  dup #userdict eq
+  {
+    pop /#PrintDictAction {(userdict) print} store
+  } if
+  
+  dup #errordict eq
+  {
+    pop /#PrintDictAction {(errordict) print} store
+  } if
+  
+  dup #globaldict eq
+  {
+    pop /#PrintDictAction {(globaldict) print} store
+  } if
+  
+  dup #statusdict eq
+  {
+    pop /#PrintDictAction {(statusdict) print} store
+  } if
+  
+  #PrintDictAction
+} bind def
+  
+/#PrintName
+{
+  dup xcheck not {(/) print} if
+  #ToString print
+} bind def
+
+/#PrintOperator
+{
+  (-) print 
+  #ToString print 
+  (-) print
+} bind def
+
+/#PrintString
+{
+  (\() print 
+  dup length 255 gt
+  {
+    0 255 getinterval #PrintArrayItems
+  }
+  {
+    print 
+  }
+  ifelse
+  (\)) print
+} bind def
+
+/#PrintNull
+{
+  pop (null) print
+} bind def
+
+/#PrintValue
+{
+  #ToString print
+} bind def
+
+/#PrintMark
+{
+  pop (-mark-) print
+} bind def
+
+/#PrintObjectType
+{
+  (-) print
+  type #ToString print
+  (-) print
+} bind def
+
+/#PrintFunctions
+<<
+  (arraytype) /#PrintArray load
+  (packedarraytype) /#PrintArray load
+  (dicttype) /#PrintDictionary load
+  (nametype) /#PrintName load
+  (operatortype) /#PrintOperator load
+  (stringtype) /#PrintString load
+  (nulltype) /#PrintNull load
+  (booleantype) /#PrintValue load
+  (realtype) /#PrintValue load
+  (integertype) /#PrintValue load
+  (marktype) /#PrintMark load
+  (filetype) /#PrintObjectType load
+  (fonttype) /#PrintObjectType load
+  (gstatetype) /#PrintObjectType load
+  (savetype) /#PrintObjectType load
+>> def
+
+/#PrintObject 
+{
+  #PrintFunctions exch #TypeExec
+} bind def
+
+/#PStack 
+{
+  0 1 count 3 sub 
+  {
+    index #PrintObject
+    (\n) print
+  } for
+} bind def
+
+/#PrintDictionaryFormatted
+{
+  print 
+  ( dictionary contents:\n) print
+  {
+    exch 
+    (Key:\n) print
+    #PrintObject
+    (\nValue:\n) print
+    #PrintObject
+    (\n\n) print
+  }
+  forall
+} bind def
+
+/#EnableLogging true def
+
+/#LoggingFilter 
+<<
+>> def
+
+/#Log 
+{
+  dup
+  #LoggingFilter exch known not
+  #EnableLogging and
+  {
+    (\n) print
+    print
+    (\nOperand stack:\n) print
+    #PStack
+    (\n) print
+  }
+  {
+    pop
+  }
+  ifelse
+} bind def
+
+/#Log_setpagedevice
+{
+  #Log
+  (Current Matrix: ) print matrix currentmatrix #PrintObject (\n) print
+  (Default Matrix: ) print matrix defaultmatrix #PrintObject (\n) print
+} bind def
+
+/#Log_show
+{
+  #Log
+  (Current Point: ) print 
+  currentpoint
+  #PrintObject (,) print #PrintObject (\n) print
+} bind def
+
+/#Log_ashow
+{
+  #Log
+  (Current Point: ) print 
+  currentpoint
+  #PrintObject (,) print #PrintObject (\n) print
+} bind def
+
+/#Log_widthshow
+{
+  #Log
+  (Current Point: ) print 
+  currentpoint
+  #PrintObject (,) print #PrintObject (\n) print
+} bind def
+
+/#Log_awidthshow
+{
+  #Log
+  (Current Point: ) print 
+  currentpoint
+  #PrintObject (,) print #PrintObject (\n) print
+} bind def
+
+/#Log_xshow
+{
+  #Log
+  (Current Point: ) print 
+  currentpoint
+  #PrintObject (,) print #PrintObject (\n) print
+} bind def
+
+/#Log_xyshow
+{
+  #Log
+  (Current Point: ) print 
+  currentpoint
+  #PrintObject (,) print #PrintObject (\n) print
+} bind def
+
+/#Log_yshow
+{
+  #Log
+  (Current Point: ) print 
+  currentpoint
+  #PrintObject (,) print #PrintObject (\n) print
+} bind def
+
+(Current Matrix: ) print matrix currentmatrix #PrintObject (\n) print
+(Default Matrix: ) print matrix defaultmatrix #PrintObject (\n) print

@@ -102,6 +102,15 @@
         }
 
 
+        public void AddNodeRange(IReadOnlyList<SyntaxNode> nodes)
+        {
+            foreach (SyntaxNode syntaxNode in nodes)
+            {
+                AddNode(syntaxNode);
+            }
+        }
+
+
         public List<SyntaxNode> GetNodesRange(int index, int count)
         {
             return _nodes.GetRange(index, count);

@@ -4,7 +4,10 @@
 
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
     using System.Linq;
+    using System.Reflection;
     using System.Text;
 
     using NightyCode.PostScript.Syntax;
@@ -59,6 +62,12 @@
 
         #region Properties
 
+        public bool AddTracing
+        {
+            get;
+            set;
+        }
+
         public bool FormatCode
         {
             get;
@@ -95,6 +104,11 @@
                 scriptNode.InlineDefinitions();
             }
 
+            if (AddTracing)
+            {
+                InsertTracingCode(scriptNode);
+            }
+
             var result = new StringBuilder();
 
             if (FormatCode)
@@ -122,6 +136,118 @@
 
 
         #region Methods
+
+        private static void AddTracePoint(
+            SyntaxBlock parent,
+            int index,
+            LiteralNode forNode,
+            string traceName,
+            ICollection<string> speciallyLoggedOperators)
+        {
+            Token token = forNode.Token;
+            int line = token.Line;
+            int column = token.Column;
+
+            if (string.IsNullOrEmpty(token.WhitespaceBefore))
+            {
+                token.WhitespaceBefore = " ";
+            }
+
+            var logFunction = "#Log";
+
+            if (speciallyLoggedOperators.Contains(traceName))
+            {
+                logFunction += "_" + traceName;
+            }
+
+            parent.InsertNode(index, new NameNode(new Token(TokenType.ExecutableName, logFunction, line, column, " ")));
+
+            string logText = string.Format("([{0},{1}] {2})", line, column, traceName);
+            parent.InsertNode(index, new StringNode(new Token(TokenType.String, logText, line, column, string.Empty)));
+        }
+
+
+        private static void AddTracePoint(
+            SyntaxBlock parent,
+            SyntaxNode beforeNode,
+            NameNode forNode,
+            ICollection<string> speciallyLoggedOperators)
+        {
+            string traceName;
+            forNode.ResolveOperatorName(out traceName);
+
+            AddTracePoint(parent, beforeNode, forNode, traceName, speciallyLoggedOperators);
+        }
+
+
+        private static void AddTracePoint(
+            SyntaxBlock parent,
+            SyntaxNode beforeNode,
+            LiteralNode forNode,
+            string traceName,
+            ICollection<string> speciallyLoggedOperators)
+        {
+            AddTracePoint(parent, parent.IndexOfNode(beforeNode), forNode, traceName, speciallyLoggedOperators);
+        }
+
+
+        private static void AddTracePoints(SyntaxBlock syntaxBlock, List<string> speciallyLoggedOperators)
+        {
+            bool isProcedure = syntaxBlock is ProcedureNode;
+            var nameNode = syntaxBlock.StartNode as NameNode;
+
+            if (!isProcedure && nameNode != null && nameNode.IsExecutable)
+            {
+                AddTracePoint(syntaxBlock.Parent, syntaxBlock, nameNode, speciallyLoggedOperators);
+            }
+
+            for (var i = 0; i < syntaxBlock.Nodes.Count; i++)
+            {
+                SyntaxNode node = syntaxBlock.Nodes[i];
+
+                nameNode = node as NameNode;
+
+                if (nameNode != null && nameNode.IsExecutable)
+                {
+                    AddTracePoint(syntaxBlock, nameNode, nameNode, speciallyLoggedOperators);
+                }
+
+                var block = node as SyntaxBlock;
+
+                if (block != null)
+                {
+                    AddTracePoints(block, speciallyLoggedOperators);
+                }
+
+                if (node != syntaxBlock.Nodes[i])
+                {
+                    i += 2;
+                }
+            }
+
+            nameNode = syntaxBlock.EndNode as NameNode;
+
+            if (isProcedure || nameNode == null || !nameNode.IsExecutable)
+            {
+                return;
+            }
+
+            string name;
+
+            var operatorNode = syntaxBlock as OperatorNode;
+
+            if (operatorNode != null)
+            {
+                name = operatorNode.OperatorName;
+            }
+            else
+            {
+                nameNode.ResolveOperatorName(out name);
+            }
+
+            AddTracePoint(syntaxBlock, syntaxBlock.Nodes.Count, nameNode, name, speciallyLoggedOperators);
+        }
+
 
         private bool BreakLineAfter(SyntaxNode node)
         {
@@ -157,6 +283,7 @@
 
             return false;
         }
+
 
         private void Format(int level, StringBuilder result, SyntaxBlock tree)
         {
@@ -238,15 +365,90 @@
         }
 
 
+        private void InsertCodeBlock(ScriptNode scriptNode, ScriptNode codeToInsert)
+        {
+            SyntaxBlock tracingBlock = new RegionBlock();
+            tracingBlock.AddNodeRange(codeToInsert.Nodes);
+
+            CommentNode prologStart =
+                scriptNode.Descendants().OfType<CommentNode>().FirstOrDefault(c => c.Text == "%%BeginProlog");
+
+            SyntaxBlock parent = scriptNode;
+            var insertIndex = 0;
+
+            if (prologStart != null)
+            {
+                parent = prologStart.Parent;
+                Debug.Assert(parent != null, "parent != null");
+                insertIndex = parent.Nodes.ToList().IndexOf(prologStart);
+
+                if (insertIndex == -1)
+                {
+                    insertIndex = 0;
+                }
+                else
+                {
+                    insertIndex++;
+                }
+            }
+
+            parent.InsertNode(insertIndex, tracingBlock);
+        }
+
+
+        private void InsertTracingCode(ScriptNode scriptNode)
+        {
+            ScriptNode tracingCode = LoadTracingCode();
+
+            List<string> speciallyLoggedOperators =
+                tracingCode.Defines.Where(p => p.Key.StartsWith("#Log_", StringComparison.Ordinal))
+                    .Select(p => p.Key.Substring(5))
+                    .ToList();
+
+            AddTracePoints(scriptNode, speciallyLoggedOperators);
+            InsertCodeBlock(scriptNode, tracingCode);
+        }
+
+
+        private ScriptNode LoadTracingCode()
+        {
+            Assembly assembly = GetType().GetTypeInfo().Assembly;
+            var resourceName = "NightyCode.PostScript.TracingCode.ps";
+
+            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+            {
+                using (var streamReader = new StreamReader(stream))
+                {
+                    string tracingCode = streamReader.ReadToEnd();
+
+                    var reader = new PostScriptReader(tracingCode);
+
+                    List<Token> tokens = reader.ReadToEnd().ToList();
+
+                    return tokens.Parse();
+                }
+            }
+        }
+
+
         private void WriteUnformattedCode(IEnumerable<Token> tokens, StringBuilder result)
         {
             Token previousToken = null;
 
             foreach (Token token in tokens)
             {
-                if (previousToken != null && previousToken.Line < token.Line)
+                if (previousToken != null)
                 {
-                    for (var i = 0; i < token.Line - previousToken.Line; i++)
+                    int previousTokenEndLine = previousToken.Line + previousToken.NumTokenLines;
+
+                    if (previousTokenEndLine < token.Line)
+                    {
+                        for (var i = 0; i < token.Line - previousTokenEndLine; i++)
+                        {
+                            result.AppendLine();
+                        }
+                    }
+                    else if (previousTokenEndLine > token.Line)
                     {
                         result.AppendLine();
                     }

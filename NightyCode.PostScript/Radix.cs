@@ -16,7 +16,6 @@
         #region Constants and Fields
 
         private static readonly string _digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
         private static readonly string _radixDecodeErrorMessage = "RadixError: generic decode error.";
         private static readonly string _radixFormatErrorMessage = "RadixError: number not in radix format.";
         private static readonly string _radixNoSymbolFormatErrorMessage = "RadixError: number not in symbolic format.";

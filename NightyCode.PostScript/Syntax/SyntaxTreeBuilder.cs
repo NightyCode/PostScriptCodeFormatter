@@ -16,6 +16,19 @@
     {
         #region Public Methods
 
+        public static IEnumerable<SyntaxNode> Descendants(this SyntaxNode node)
+        {
+            var blockNode = node as SyntaxBlock;
+
+            if (blockNode != null)
+            {
+                return blockNode.Descendants();
+            }
+
+            return new List<SyntaxNode> { node };
+        }
+
+
         public static void Group(this SyntaxBlock node, string startLiteral, string endLiteral)
         {
             List<LiteralNode> nodes =
@@ -114,7 +127,7 @@
 
             scriptNode.Analyze();
 
-            foreach (var alias in scriptNode.OperatorAliases.ToList())
+            foreach (KeyValuePair<string, List<string>> alias in scriptNode.OperatorAliases.ToList())
             {
                 if (scriptNode.Defines[alias.Key].Count == alias.Value.Count)
                 {
@@ -125,6 +138,14 @@
             }
 
             return scriptNode;
+        }
+
+
+        public static bool ResolveOperatorName(this NameNode nameNode, out string operatorName)
+        {
+            operatorName = nameNode.Text;
+
+            return ResolveOperatorName(nameNode.GetScriptNode(), ref operatorName);
         }
 
 
@@ -173,7 +194,7 @@
                 string operatorName = nameNode.Text;
                 ScriptNode scriptNode = tree.GetScriptNode();
 
-                ResolveOperatorName(ref operatorName, scriptNode);
+                ResolveOperatorName(scriptNode, ref operatorName);
 
                 if (operatorName == "load")
                 {
@@ -195,11 +216,9 @@
 
                         if (loadOperator != null && loadOperator.OperatorName == "load")
                         {
-                            operatorName = loadOperator.Nodes[0].Text.Substring(1);
-
-                            if (ResolveOperatorName(ref operatorName, scriptNode))
+                            if (ResolveOperatorName((NameNode)loadOperator.Nodes[0], out operatorName))
                             {
-                                scriptNode.AddOperatorAlias(operatorNode, operatorName);
+                                scriptNode.AddOperatorAlias(operatorNode, operatorName.Substring(1));
                             }
                         }
                     }
@@ -268,6 +287,36 @@
         }
 
 
+        private static IEnumerable<SyntaxNode> Descendants(this SyntaxBlock node)
+        {
+            if (node.StartNode != null)
+            {
+                foreach (SyntaxNode syntaxNode in node.StartNode.Descendants())
+                {
+                    yield return syntaxNode;
+                }
+            }
+
+            foreach (SyntaxNode child in node.Nodes)
+            {
+                foreach (SyntaxNode syntaxNode in child.Descendants())
+                {
+                    yield return syntaxNode;
+                }
+            }
+
+            if (node.EndNode == null)
+            {
+                yield break;
+            }
+
+            foreach (SyntaxNode syntaxNode in node.EndNode.Descendants())
+            {
+                yield return syntaxNode;
+            }
+        }
+
+
         private static List<OperatorNode> GetDefines(this SyntaxNode node, string key)
         {
             var defines = new List<OperatorNode>();
@@ -314,19 +363,17 @@
         }
 
 
-        private static List<string> GetOperatorAliases(this SyntaxNode node, string key)
+        private static List<string> GetOperatorAliases(ScriptNode scriptNode, string key)
         {
             var aliases = new List<string>();
 
-            ScriptNode procedureNode = node.GetScriptNode();
-
-            if (procedureNode == null)
+            if (scriptNode == null)
             {
                 return aliases;
             }
 
             List<string> procedureAliases;
-            if (procedureNode.OperatorAliases.TryGetValue(key, out procedureAliases))
+            if (scriptNode.OperatorAliases.TryGetValue(key, out procedureAliases))
             {
                 aliases.AddRange(procedureAliases);
             }
@@ -380,9 +427,8 @@
                     continue;
                 }
 
-                string name = nameNode.Text;
-
-                if (ResolveOperatorName(ref name, parentNode.GetScriptNode()))
+                string name;
+                if (ResolveOperatorName(nameNode, out name))
                 {
                     nameNode.Token.Text = name;
                 }
@@ -465,7 +511,7 @@
         }
 
 
-        private static bool ResolveOperatorName(ref string operatorName, ProcedureNode parentProcedure)
+        private static bool ResolveOperatorName(ScriptNode scriptNode, ref string operatorName)
         {
             var isLiteralName = false;
             string name = operatorName;
@@ -481,7 +527,7 @@
                 return true;
             }
 
-            List<string> aliases = GetOperatorAliases(parentProcedure, name).Distinct().ToList();
+            List<string> aliases = GetOperatorAliases(scriptNode, name).Distinct().ToList();
 
             if (aliases.Count != 1)
             {

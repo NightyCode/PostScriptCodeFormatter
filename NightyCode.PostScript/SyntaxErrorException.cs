@@ -9,6 +9,8 @@ namespace NightyCode.PostScript
 
     internal class SyntaxErrorException : Exception
     {
+        #region Constructors and Destructors
+
         public SyntaxErrorException()
         {
         }
@@ -24,5 +26,7 @@ namespace NightyCode.PostScript
             : base(message, innerException)
         {
         }
+
+        #endregion
     }
 }

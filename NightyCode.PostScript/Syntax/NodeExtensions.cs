@@ -16,7 +16,6 @@
             return literalNode.Text == name;
         }
 
-
         #endregion
     }
 }
