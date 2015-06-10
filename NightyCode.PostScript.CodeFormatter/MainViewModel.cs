@@ -36,18 +36,6 @@
 
         #region Properties
 
-        public bool FormatCode
-        {
-            get
-            {
-                return _formatter.FormatCode;
-            }
-            set
-            {
-                _formatter.FormatCode = value;
-            }
-        }
-
         public bool AddTracing
         {
             get
@@ -60,6 +48,26 @@
             }
         }
 
+        public bool FormatCode
+        {
+            get
+            {
+                return _formatter.FormatCode;
+            }
+            set
+            {
+                _formatter.FormatCode = value;
+            }
+        }
+
+        public ICommand ProcessCodeCommand
+        {
+            get
+            {
+                return _processCodeCommand;
+            }
+        }
+
         public string ProcessedCode
         {
             get
@@ -69,14 +77,6 @@
             set
             {
                 SetProperty(ref _processedCode, value);
-            }
-        }
-
-        public ICommand ProcessCodeCommand
-        {
-            get
-            {
-                return _processCodeCommand;
             }
         }
 
@@ -109,7 +109,7 @@
 
         #region Methods
 
-        private void ProcessCode()
+        private async void ProcessCode()
         {
             if (string.IsNullOrWhiteSpace(SourceCode))
             {
@@ -119,7 +119,7 @@
             _formatter.FormatCode = FormatCode;
             _formatter.RemoveOperatorAliases = RemoveOperatorAliases;
 
-            ProcessedCode = _formatter.Format(SourceCode);
+            ProcessedCode = await _formatter.Format(SourceCode).ConfigureAwait(true);
         }
 
         #endregion

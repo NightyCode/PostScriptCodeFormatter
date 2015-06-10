@@ -7,10 +7,12 @@
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
-    using System.Reflection;
     using System.Text;
+    using System.Threading.Tasks;
 
     using NightyCode.PostScript.Syntax;
+
+    using PCLStorage;
 
     #endregion
 
@@ -91,7 +93,7 @@
 
         #region Public Methods
 
-        public string Format(string postScript)
+        public async Task<string> Format(string postScript)
         {
             var reader = new PostScriptReader(postScript);
 
@@ -106,7 +108,7 @@
 
             if (AddTracing)
             {
-                InsertTracingCode(scriptNode);
+                await InsertTracingCode(scriptNode).ConfigureAwait(false);
             }
 
             var result = new StringBuilder();
@@ -396,9 +398,9 @@
         }
 
 
-        private void InsertTracingCode(ScriptNode scriptNode)
+        private async Task InsertTracingCode(ScriptNode scriptNode)
         {
-            ScriptNode tracingCode = LoadTracingCode();
+            ScriptNode tracingCode = await LoadTracingCode().ConfigureAwait(false);
 
             List<string> speciallyLoggedOperators =
                 tracingCode.Defines.Where(p => p.Key.StartsWith("#Log_", StringComparison.Ordinal))
@@ -410,23 +412,22 @@
         }
 
 
-        private ScriptNode LoadTracingCode()
+        private async Task<ScriptNode> LoadTracingCode()
         {
-            Assembly assembly = GetType().GetTypeInfo().Assembly;
-            var resourceName = "NightyCode.PostScript.TracingCode.ps";
+            // TODO: get source file from parameters.
+            IFile traceCodeFile = await FileSystem.Current.GetFileFromPathAsync("TracingCode.ps").ConfigureAwait(false);
 
-            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+            Stream stream = await traceCodeFile.OpenAsync(FileAccess.Read).ConfigureAwait(false);
+
+            using (var streamReader = new StreamReader(stream))
             {
-                using (var streamReader = new StreamReader(stream))
-                {
-                    string tracingCode = streamReader.ReadToEnd();
+                string tracingCode = streamReader.ReadToEnd();
 
-                    var reader = new PostScriptReader(tracingCode);
+                var reader = new PostScriptReader(tracingCode);
 
-                    List<Token> tokens = reader.ReadToEnd().ToList();
+                List<Token> tokens = reader.ReadToEnd().ToList();
 
-                    return tokens.Parse();
-                }
+                return tokens.Parse();
             }
         }
 

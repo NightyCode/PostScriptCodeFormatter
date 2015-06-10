@@ -98,34 +98,35 @@
 
 /#PrintDictionary
 {
-  /#PrintDictAction /#PrintCustomDictionary load store
-  
-  dup #systemdict eq
-  {
-    pop /#PrintDictAction {(systemdict) print} store
-  } if
-  
-  dup #userdict eq
-  {
-    pop /#PrintDictAction {(userdict) print} store
-  } if
-  
-  dup #errordict eq
-  {
-    pop /#PrintDictAction {(errordict) print} store
-  } if
-  
-  dup #globaldict eq
-  {
-    pop /#PrintDictAction {(globaldict) print} store
-  } if
-  
-  dup #statusdict eq
-  {
-    pop /#PrintDictAction {(statusdict) print} store
-  } if
-  
-  #PrintDictAction
+  pop (-dict-) print
+  %/#PrintDictAction /#PrintCustomDictionary load store
+  %
+  %dup #systemdict eq
+  %{
+  %  pop /#PrintDictAction {(systemdict) print} store
+  %} if
+  %
+  %dup #userdict eq
+  %{
+  %  pop /#PrintDictAction {(userdict) print} store
+  %} if
+  %
+  %dup #errordict eq
+  %{
+  %  pop /#PrintDictAction {(errordict) print} store
+  %} if
+  %
+  %dup #globaldict eq
+  %{
+  %  pop /#PrintDictAction {(globaldict) print} store
+  %} if
+  %
+  %dup #statusdict eq
+  %{
+  %  pop /#PrintDictAction {(statusdict) print} store
+  %} if
+  %
+  %#PrintDictAction
 } bind def
   
 /#PrintName
@@ -144,14 +145,15 @@
 /#PrintString
 {
   (\() print 
-  dup length 255 gt
-  {
-    0 255 getinterval #PrintArrayItems
-  }
-  {
-    print 
-  }
-  ifelse
+  %dup length 255 gt
+  %{
+  %  0 255 getinterval #PrintArrayItems
+  %}
+  %{
+  %  print 
+  %}
+  %ifelse
+  #PrintArrayItems
   (\)) print
 } bind def
 
@@ -168,6 +170,11 @@
 /#PrintMark
 {
   pop (-mark-) print
+} bind def
+
+/#PrintSaveObject
+{
+  pop (-save-) print
 } bind def
 
 /#PrintObjectType
@@ -193,7 +200,7 @@
   (filetype) /#PrintObjectType load
   (fonttype) /#PrintObjectType load
   (gstatetype) /#PrintObjectType load
-  (savetype) /#PrintObjectType load
+  (savetype) /#PrintSaveObject load
 >> def
 
 /#PrintObject 
