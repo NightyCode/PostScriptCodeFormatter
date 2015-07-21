@@ -95,43 +95,50 @@
 
         public async Task<string> Format(string postScript)
         {
-            var reader = new PostScriptReader(postScript);
-
-            List<Token> tokens = reader.ReadToEnd().ToList();
-
-            ScriptNode scriptNode = tokens.Parse();
-
-            if (RemoveOperatorAliases)
+            try
             {
-                scriptNode.InlineDefinitions();
-            }
+                var reader = new PostScriptReader(postScript);
 
-            if (AddTracing)
+                IEnumerable<Token> tokens = reader.ReadToEnd();
+
+                ScriptNode scriptNode = tokens.Parse();
+
+                if (RemoveOperatorAliases)
+                {
+                    scriptNode.InlineDefinitions();
+                }
+
+                if (AddTracing)
+                {
+                    await InsertTracingCode(scriptNode).ConfigureAwait(false);
+                }
+
+                var result = new StringBuilder();
+
+                if (FormatCode)
+                {
+                    scriptNode.Group("%%BeginProlog", "%%EndProlog");
+                    scriptNode.Group("%%BeginSetup", "%%EndSetup");
+                    scriptNode.Group("%%BeginPageSetup", "%%EndPageSetup");
+                    scriptNode.Group("%%BeginDefaults", "%%EndDefaults");
+
+                    scriptNode.Group("begin", "end");
+                    scriptNode.Group("save", "restore");
+                    scriptNode.Group("gsave", "grestore");
+
+                    Format(0, result, scriptNode);
+                }
+                else
+                {
+                    WriteUnformattedCode(scriptNode.ToTokens(), result);
+                }
+
+                return result.ToString();
+            }
+            catch (OutOfMemoryException e)
             {
-                await InsertTracingCode(scriptNode).ConfigureAwait(false);
+                throw new PostScriptFormatterException("The source Post Script code is either too long or it contains embedded stream(s).", e);
             }
-
-            var result = new StringBuilder();
-
-            if (FormatCode)
-            {
-                scriptNode.Group("%%BeginProlog", "%%EndProlog");
-                scriptNode.Group("%%BeginSetup", "%%EndSetup");
-                scriptNode.Group("%%BeginPageSetup", "%%EndPageSetup");
-                scriptNode.Group("%%BeginDefaults", "%%EndDefaults");
-
-                scriptNode.Group("begin", "end");
-                scriptNode.Group("save", "restore");
-                scriptNode.Group("gsave", "grestore");
-
-                Format(0, result, scriptNode);
-            }
-            else
-            {
-                WriteUnformattedCode(scriptNode.ToTokens(), result);
-            }
-
-            return result.ToString();
         }
 
         #endregion

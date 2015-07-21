@@ -13,6 +13,7 @@
         LiteralName,
         ExecutableName,
         IntegerNumber,
-        RealNumber
+        RealNumber,
+        RawData
     }
 }

@@ -1,4 +1,4 @@
-namespace NightyCode.PostScript
+﻿namespace NightyCode.PostScript
 {
     #region Namespace Imports
 
@@ -7,22 +7,22 @@ namespace NightyCode.PostScript
     #endregion
 
 
-    internal class SyntaxErrorException : Exception
+    public class PostScriptFormatterException : Exception
     {
         #region Constructors and Destructors
 
-        public SyntaxErrorException()
+        public PostScriptFormatterException()
         {
         }
 
 
-        public SyntaxErrorException(string message)
+        public PostScriptFormatterException(string message)
             : base(message)
         {
         }
 
 
-        public SyntaxErrorException(string message, Exception innerException)
+        public PostScriptFormatterException(string message, Exception innerException)
             : base(message, innerException)
         {
         }

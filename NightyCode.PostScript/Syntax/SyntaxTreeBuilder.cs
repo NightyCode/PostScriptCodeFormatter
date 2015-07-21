@@ -158,9 +158,10 @@
                 return blockNode.ToTokens();
             }
 
-            var literalNode = (LiteralNode)node;
+            var rawDataNode = node as RawDataNode;
+            Token token = rawDataNode != null ? rawDataNode.Token : ((LiteralNode)node).Token;
 
-            return new List<Token> { literalNode.Token };
+            return new List<Token> { token };
         }
 
         #endregion
@@ -280,6 +281,9 @@
 
                 case TokenType.RealNumber:
                     return new RealNumberNode(token);
+
+                case TokenType.RawData:
+                    return new RawDataNode(token);
 
                 default:
                     return new NameNode(token);

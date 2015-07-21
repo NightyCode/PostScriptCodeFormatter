@@ -5,6 +5,7 @@
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Text;
 
     #endregion
@@ -17,8 +18,10 @@
         private readonly TextReader _reader;
         private readonly StringBuilder _stringBuilder = new StringBuilder();
         private int _currentCharacter;
-        private int _currentColumn = -1;
-        private int _currentLine = -1;
+        private int _currentColumn;
+        private int _currentLine;
+        private List<EmbeddedStream> _embeddedStreams;
+        private EmbeddedStream? _nextEmbeddedStream;
         private IEnumerator<Token> _tokenEnumerator;
         private string _whitespaceCharacters = string.Empty;
 
@@ -121,12 +124,35 @@
         }
 
 
+        private EmbeddedStream? GetNextEmbeddedStream()
+        {
+            if (_embeddedStreams == null)
+            {
+                return null;
+            }
+
+            if (_nextEmbeddedStream == null)
+            {
+                return null;
+            }
+
+            int currentStreamIndex = _embeddedStreams.IndexOf(_nextEmbeddedStream.Value);
+
+            if (currentStreamIndex < _embeddedStreams.Count - 1)
+            {
+                return _embeddedStreams[currentStreamIndex + 1];
+            }
+
+            return null;
+        }
+
+
         private void OnNextCharacter()
         {
-            if (_currentLine == -1 && _currentColumn == -1)
+            if (_currentLine == 0 && _currentColumn == 0)
             {
-                _currentLine = 0;
-                _currentColumn = 0;
+                _currentLine = 1;
+                _currentColumn = 1;
             }
             else
             {
@@ -136,8 +162,67 @@
             if (_currentCharacter == '\n')
             {
                 _currentLine++;
-                _currentColumn = 0;
+                _currentColumn = 1;
             }
+        }
+
+
+        private EmbeddedStream ParseEmbeddedStreamLocation(string location)
+        {
+            location = location.Trim('[', ']');
+
+            string[] split = location.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+            return new EmbeddedStream
+            {
+                Start = new TextPosition { Line = int.Parse(split[0]), Column = int.Parse(split[1]) },
+                End = new TextPosition { Line = int.Parse(split[2]), Column = int.Parse(split[3]) }
+            };
+        }
+
+
+        private void ParseEmbeddedStreamsCommment(string embeddedCommentsString)
+        {
+            try
+            {
+                string[] locations = embeddedCommentsString.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                var embeddedStreams = new List<EmbeddedStream>();
+
+                foreach (string location in locations)
+                {
+                    embeddedStreams.Add(ParseEmbeddedStreamLocation(location));
+                }
+
+                _embeddedStreams = embeddedStreams.OrderBy(s => s.Start.Line).ToList();
+
+                if (_embeddedStreams.Count > 0)
+                {
+                    _nextEmbeddedStream = _embeddedStreams.First();
+                }
+            }
+            catch (Exception e)
+            {
+                throw new PostScriptReaderException("Failed to parse embedded streams comment.", e);
+            }
+        }
+
+
+        private int PeekCharacter(out int line, out int column)
+        {
+            int character = PeekCharacter();
+            line = _currentLine;
+            column = _currentColumn + 1;
+
+            if (_currentCharacter != '\n')
+            {
+                return character;
+            }
+
+            line++;
+            column = 1;
+
+            return character;
         }
 
 
@@ -157,7 +242,7 @@
             var endOfString = false;
 
             int line = _currentLine;
-            int column = _currentColumn - 1;
+            int column = _currentColumn - 2;
 
             while (true)
             {
@@ -174,7 +259,7 @@
                 {
                     if (character != '>')
                     {
-                        throw new SyntaxErrorException(
+                        throw new PostScriptReaderException(
                             string.Format("Unexpected character sequence '~{0}' in ASCII85 encoded string.", character));
                     }
 
@@ -187,7 +272,7 @@
                 }
             }
 
-            throw new SyntaxErrorException("Unexpected end of stream while reading ASCII85 encoded string.");
+            throw new PostScriptReaderException("Unexpected end of stream while reading ASCII85 encoded string.");
         }
 
 
@@ -227,6 +312,13 @@
             int column;
             string text = ReadLine(out line, out column);
 
+            var embeddedStreamsComment = "%#EmbeddedStreams:";
+
+            if (text.StartsWith(embeddedStreamsComment, StringComparison.Ordinal))
+            {
+                ParseEmbeddedStreamsCommment(text.Substring(embeddedStreamsComment.Length));
+            }
+
             return CreateToken(TokenType.Comment, text, line, column);
         }
 
@@ -238,7 +330,7 @@
             _stringBuilder.Append("<");
 
             int line = _currentLine;
-            int column = _currentColumn;
+            int column = _currentColumn - 1;
 
             while (true)
             {
@@ -257,14 +349,14 @@
                 }
             }
 
-            throw new SyntaxErrorException("Unexpected end of stream while reading hex encoded string.");
+            throw new PostScriptReaderException("Unexpected end of stream while reading hex encoded string.");
         }
 
 
         private string ReadLine(out int line, out int startColumn)
         {
-            line = -1;
-            startColumn = -1;
+            line = 0;
+            startColumn = 0;
 
             if (_currentCharacter == -1)
             {
@@ -288,7 +380,7 @@
         private Token ReadLiteral()
         {
             int line = _currentLine;
-            int column = _currentColumn + 1;
+            int column = _currentColumn;
 
             var stop = false;
             var isLiteralName = false;
@@ -347,7 +439,7 @@
                 }
 
                 line = _currentLine;
-                column = _currentColumn + 1;
+                column = _currentColumn;
             }
             while (!stop);
 
@@ -395,13 +487,13 @@
 
         private Token ReadString()
         {
+            int line = _currentLine;
+            int column = _currentColumn;
+
             _stringBuilder.Clear();
 
             // read starting parenthesis.
             _stringBuilder.Append((char)ReadCharacter());
-
-            int line = _currentLine;
-            int column = _currentColumn + 1;
 
             int previousCharacter = -1;
             var openParenthesesCount = 0;
@@ -443,10 +535,31 @@
 
             if (openParenthesesCount > 0)
             {
-                throw new SyntaxErrorException("Unexpected end of stream while reading string.");
+                throw new PostScriptReaderException("Unexpected end of stream while reading string.");
             }
 
             return CreateToken(TokenType.String, _stringBuilder.ToString(), line, column);
+        }
+
+
+        private string ReadTo(TextPosition textPosition)
+        {
+            var stringBuilder = new StringBuilder();
+
+            while (_currentLine < textPosition.Line - 1)
+            {
+                int line;
+                int column;
+                stringBuilder.AppendLine(ReadLine(out line, out column));
+            }
+
+            do
+            {
+                stringBuilder.Append((char)ReadCharacter());
+            }
+            while (_currentColumn != textPosition.Column);
+
+            return stringBuilder.ToString();
         }
 
 
@@ -454,11 +567,29 @@
         {
             while (true)
             {
-                int character = PeekCharacter();
+                int nextCharacterLine;
+                int nextCharacterColumn;
+                int character = PeekCharacter(out nextCharacterLine, out nextCharacterColumn);
 
                 if (character == -1)
                 {
                     break;
+                }
+
+                if (_nextEmbeddedStream != null)
+                {
+                    EmbeddedStream stream = _nextEmbeddedStream.Value;
+
+                    if (stream.Start.Line == nextCharacterLine && stream.Start.Column == nextCharacterColumn)
+                    {
+                        _nextEmbeddedStream = GetNextEmbeddedStream();
+
+                        int line = nextCharacterLine;
+                        int column = nextCharacterColumn;
+                        yield return CreateToken(TokenType.RawData, ReadTo(stream.End), line, column);
+
+                        continue;
+                    }
                 }
 
                 switch (character)
@@ -498,7 +629,7 @@
                             // Read the second < character from stream
                             ReadCharacter();
 
-                            yield return CreateToken(TokenType.DictionaryStart, "<<", _currentLine, _currentColumn - 1);
+                            yield return CreateToken(TokenType.DictionaryStart, "<<", _currentLine, _currentColumn - 2);
                         }
                         else
                         {
@@ -516,42 +647,42 @@
 
                         if (character != '>')
                         {
-                            throw new SyntaxErrorException(
+                            throw new PostScriptReaderException(
                                 string.Format("Unexpected charcater sequence '<{0}'.", character));
                         }
 
                         // Read the second > character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.DictionaryEnd, ">>", _currentLine, _currentColumn - 1);
+                        yield return CreateToken(TokenType.DictionaryEnd, ">>", _currentLine, _currentColumn - 2);
                         break;
 
                     case '[':
                         // Read the [ character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.ArrayStart, "[", _currentLine, _currentColumn);
+                        yield return CreateToken(TokenType.ArrayStart, "[", _currentLine, _currentColumn - 1);
                         break;
 
                     case ']':
                         // Read the ] character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.ArrayEnd, "]", _currentLine, _currentColumn);
+                        yield return CreateToken(TokenType.ArrayEnd, "]", _currentLine, _currentColumn - 1);
                         break;
 
                     case '{':
                         // Read the { character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.ProcedureStart, "{", _currentLine, _currentColumn);
+                        yield return CreateToken(TokenType.ProcedureStart, "{", _currentLine, _currentColumn - 1);
                         break;
 
                     case '}':
                         // Read the { character from stream
                         ReadCharacter();
 
-                        yield return CreateToken(TokenType.ProcedureEnd, "}", _currentLine, _currentColumn);
+                        yield return CreateToken(TokenType.ProcedureEnd, "}", _currentLine, _currentColumn - 1);
                         break;
 
                     default:
@@ -562,5 +693,45 @@
         }
 
         #endregion
+
+
+        private struct EmbeddedStream
+        {
+            #region Properties
+
+            public TextPosition End
+            {
+                get;
+                set;
+            }
+
+            public TextPosition Start
+            {
+                get;
+                set;
+            }
+
+            #endregion
+        }
+
+
+        private struct TextPosition
+        {
+            #region Properties
+
+            public int Column
+            {
+                get;
+                set;
+            }
+
+            public int Line
+            {
+                get;
+                set;
+            }
+
+            #endregion
+        }
     }
 }
