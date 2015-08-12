@@ -21,6 +21,7 @@
         private int _currentColumn;
         private int _currentLine;
         private List<EmbeddedStream> _embeddedStreams;
+        private readonly List<string> _embeddedStreamStartTokens = new List<string> { "doNimage" };
         private EmbeddedStream? _nextEmbeddedStream;
         private IEnumerator<Token> _tokenEnumerator;
         private string _whitespaceCharacters = string.Empty;
@@ -233,16 +234,25 @@
         }
 
 
-        private Token ReadAscii85String()
+        private Token ReadAscii85String(bool isEmbeddedStream = false)
         {
             _stringBuilder.Clear();
 
-            _stringBuilder.Append("<~");
-
             var endOfString = false;
 
-            int line = _currentLine;
-            int column = _currentColumn - 2;
+            int line;
+            int column;
+
+            if (!isEmbeddedStream)
+            {
+                _stringBuilder.Append("<~");
+                line = _currentLine;
+                column = _currentColumn - 2;
+            }
+            else
+            {
+                PeekCharacter(out line, out column);
+            }
 
             while (true)
             {
@@ -263,7 +273,11 @@
                             string.Format("Unexpected character sequence '~{0}' in ASCII85 encoded string.", character));
                     }
 
-                    return CreateToken(TokenType.String, _stringBuilder.ToString(), line, column);
+                    return CreateToken(
+                        isEmbeddedStream ? TokenType.RawData : TokenType.String,
+                        _stringBuilder.ToString(),
+                        line,
+                        column);
                 }
 
                 if (character == '~')
@@ -487,13 +501,13 @@
 
         private Token ReadString()
         {
-            int line = _currentLine;
-            int column = _currentColumn;
-
             _stringBuilder.Clear();
 
             // read starting parenthesis.
             _stringBuilder.Append((char)ReadCharacter());
+
+            int line = _currentLine;
+            int column = _currentColumn;
 
             int previousCharacter = -1;
             var openParenthesesCount = 0;
@@ -592,6 +606,15 @@
                     }
                 }
 
+                // TODO: also check resource DSC.
+                if (_tokenEnumerator.Current != null
+                    && _embeddedStreamStartTokens.Contains(_tokenEnumerator.Current.Text))
+                {
+                    SkipWhitespaceCharacters();
+
+                    yield return ReadAscii85String(true);
+                }
+
                 switch (character)
                 {
                     case '%':
@@ -688,6 +711,31 @@
                     default:
                         yield return ReadLiteral();
                         break;
+                }
+            }
+        }
+
+
+        private void SkipWhitespaceCharacters()
+        {
+            while (true)
+            {
+                int nextCharacterLine;
+                int nextCharacterColumn;
+                int character = PeekCharacter(out nextCharacterLine, out nextCharacterColumn);
+
+                if (character == -1)
+                {
+                    break;
+                }
+
+                if (char.IsWhiteSpace((char)character) || character == 0)
+                {
+                    _whitespaceCharacters += (char)ReadCharacter();
+                }
+                else
+                {
+                    break;
                 }
             }
         }
