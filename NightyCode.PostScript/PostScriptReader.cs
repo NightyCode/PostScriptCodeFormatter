@@ -4,6 +4,7 @@
 
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Text;
@@ -21,7 +22,7 @@
         private int _currentColumn;
         private int _currentLine;
         private List<EmbeddedStream> _embeddedStreams;
-        private readonly List<string> _embeddedStreamStartTokens = new List<string> { "doNimage" };
+        private readonly List<string> _embeddedStreamStartTokens = new List<string> { "doNimage", "beginimage", "Y" };
         private EmbeddedStream? _nextEmbeddedStream;
         private IEnumerator<Token> _tokenEnumerator;
         private string _whitespaceCharacters = string.Empty;
@@ -473,7 +474,7 @@
             {
                 tokenType = TokenType.IntegerNumber;
             }
-            else if (double.TryParse(value, out real))
+            else if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out real))
             {
                 tokenType = TokenType.RealNumber;
             }
@@ -487,6 +488,7 @@
                     try
                     {
                         Radix.Decode(strings[1], radix, out real);
+                        tokenType = TokenType.IntegerNumber;
                     }
                     catch
                     {

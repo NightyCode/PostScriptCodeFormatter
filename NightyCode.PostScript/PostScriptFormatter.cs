@@ -176,27 +176,12 @@
         }
 
 
-        private static void AddTracePoint(
-            SyntaxBlock parent,
-            SyntaxNode beforeNode,
-            NameNode forNode,
-            ICollection<string> speciallyLoggedOperators)
+        private static void AddTracePoint(SyntaxBlock parent, int index, NameNode forNode, ICollection<string> speciallyLoggedOperators)
         {
             string traceName;
             forNode.ResolveOperatorName(out traceName);
 
-            AddTracePoint(parent, beforeNode, forNode, traceName, speciallyLoggedOperators);
-        }
-
-
-        private static void AddTracePoint(
-            SyntaxBlock parent,
-            SyntaxNode beforeNode,
-            LiteralNode forNode,
-            string traceName,
-            ICollection<string> speciallyLoggedOperators)
-        {
-            AddTracePoint(parent, parent.IndexOfNode(beforeNode), forNode, traceName, speciallyLoggedOperators);
+            AddTracePoint(parent, index, forNode, traceName, speciallyLoggedOperators);
         }
 
 
@@ -207,7 +192,10 @@
 
             if (!isProcedure && nameNode != null && nameNode.IsExecutable)
             {
-                AddTracePoint(syntaxBlock.Parent, syntaxBlock, nameNode, speciallyLoggedOperators);
+                SyntaxBlock parent = syntaxBlock.Parent;
+                Debug.Assert(parent != null, "parent != null");
+                int index = parent.IndexOfNode(syntaxBlock);
+                AddTracePoint(parent, index, nameNode, speciallyLoggedOperators);
             }
 
             for (var i = 0; i < syntaxBlock.Nodes.Count; i++)
@@ -218,7 +206,7 @@
 
                 if (nameNode != null && nameNode.IsExecutable)
                 {
-                    AddTracePoint(syntaxBlock, nameNode, nameNode, speciallyLoggedOperators);
+                    AddTracePoint(syntaxBlock, i, nameNode, speciallyLoggedOperators);
                 }
 
                 var block = node as SyntaxBlock;
