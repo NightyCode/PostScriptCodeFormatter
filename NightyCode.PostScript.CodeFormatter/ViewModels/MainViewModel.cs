@@ -1,7 +1,8 @@
-﻿namespace NightyCode.PostScript.CodeFormatter
+﻿namespace NightyCode.PostScript.CodeFormatter.ViewModels
 {
     #region Namespace Imports
 
+    using System.IO;
     using System.Windows.Input;
 
     using Microsoft.Practices.Prism.Commands;
@@ -17,6 +18,7 @@
         private readonly PostScriptFormatter _formatter;
         private readonly DelegateCommand _processCodeCommand;
         private string _processedCode;
+        private string _selectedFileName;
         private string _sourceCode;
 
         #endregion
@@ -28,7 +30,7 @@
         {
             _formatter = new PostScriptFormatter();
 
-            _processCodeCommand = new DelegateCommand(ProcessCode);
+            _processCodeCommand = new DelegateCommand(ProcessCode, CanProcessCode);
         }
 
         #endregion
@@ -92,15 +94,35 @@
             }
         }
 
+        public string SelectedFileName
+        {
+            get
+            {
+                return _selectedFileName;
+            }
+
+            set
+            {
+                if (SetProperty(ref _selectedFileName, value))
+                {
+                    OnSelectedFileNameChanged();
+                }
+            }
+        }
+
         public string SourceCode
         {
             get
             {
                 return _sourceCode;
             }
-            set
+
+            private set
             {
-                SetProperty(ref _sourceCode, value);
+                if (SetProperty(ref _sourceCode, value))
+                {
+                    _processCodeCommand.RaiseCanExecuteChanged();
+                }
             }
         }
 
@@ -109,17 +131,35 @@
 
         #region Methods
 
+        private bool CanProcessCode()
+        {
+            return !string.IsNullOrEmpty(SourceCode);
+        }
+
+
+        private void OnSelectedFileNameChanged()
+        {
+            if (string.IsNullOrEmpty(_selectedFileName) || !File.Exists(_selectedFileName))
+            {
+                SourceCode = null;
+
+                return;
+            }
+
+            SourceCode = File.ReadAllText(_selectedFileName);
+        }
+
+
         private async void ProcessCode()
         {
-            if (string.IsNullOrWhiteSpace(SourceCode))
+            if (!CanProcessCode())
             {
                 return;
             }
 
-            _formatter.FormatCode = FormatCode;
-            _formatter.RemoveOperatorAliases = RemoveOperatorAliases;
+            var fileStream = new FileStream(SelectedFileName, FileMode.Open);
 
-            ProcessedCode = await _formatter.Format(SourceCode).ConfigureAwait(true);
+            ProcessedCode = await _formatter.Format(fileStream).ConfigureAwait(true);
         }
 
         #endregion

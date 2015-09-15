@@ -93,11 +93,11 @@
 
         #region Public Methods
 
-        public async Task<string> Format(string postScript)
+        public async Task<string> Format(Stream stream)
         {
             try
             {
-                var reader = new PostScriptReader(postScript);
+                var reader = new PostScriptReader(stream);
 
                 IEnumerable<Token> tokens = reader.ReadToEnd();
 
@@ -414,12 +414,8 @@
 
             Stream stream = await traceCodeFile.OpenAsync(FileAccess.Read).ConfigureAwait(false);
 
-            using (var streamReader = new StreamReader(stream))
+            using (var reader = new PostScriptReader(stream))
             {
-                string tracingCode = streamReader.ReadToEnd();
-
-                var reader = new PostScriptReader(tracingCode);
-
                 List<Token> tokens = reader.ReadToEnd().ToList();
 
                 return tokens.Parse();

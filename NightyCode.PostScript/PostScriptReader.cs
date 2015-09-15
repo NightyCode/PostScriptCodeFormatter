@@ -37,12 +37,6 @@
             _reader = new StreamReader(stream);
         }
 
-
-        public PostScriptReader(string postScript)
-        {
-            _reader = new StringReader(postScript);
-        }
-
         #endregion
 
 

@@ -35,6 +35,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Filters\StreamFilter.cs" />
+    <Compile Include="Filters\FilterType.cs" />
     <Compile Include="PostScriptFormatterException.cs" />
     <Compile Include="Radix.cs" />
     <Compile Include="Syntax\IntegerNumberNode.cs" />
